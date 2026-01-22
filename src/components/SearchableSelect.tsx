@@ -7,7 +7,7 @@ import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SearchableSelectProps {
-  options: { value: string; label: string }[];
+  options?: { value: string; label: string }[];
   value: string;
   onValueChange: (value: string) => void;
   placeholder?: string;
@@ -16,8 +16,8 @@ interface SearchableSelectProps {
 }
 
 export const SearchableSelect = ({
-  options,
-  value,
+  options = [],
+  value = "",
   onValueChange,
   placeholder = "Select...",
   emptyText = "No options found.",
@@ -26,20 +26,7 @@ export const SearchableSelect = ({
   const [open, setOpen] = useState(false);
 
   // Ensure options is always a valid array
-  const safeOptions = Array.isArray(options) && options.length >= 0 ? options : [];
-
-  // Don't render the component if we don't have valid options
-  if (!Array.isArray(options)) {
-    console.warn('SearchableSelect: options prop must be an array');
-    return (
-      <Button
-        {...({ variant: "outline", className: cn("w-full justify-between", className), disabled: true } as any)}
-      >
-        {placeholder}
-        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-      </Button>
-    );
-  }
+  const safeOptions = Array.isArray(options) ? options : [];
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

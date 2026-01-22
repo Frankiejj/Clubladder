@@ -92,7 +92,7 @@ export default function Index() {
     const { data, error } = await supabase
       .from("players")
       .select(
-        "id,name,email,gender,rank,wins,losses,singles_rating,doubles_rating,singles_match_frequency,is_admin,clubs,created_at,phone,avatar_url"
+        "id,name,email,gender,rank,wins,losses,singles_match_frequency,is_admin,is_super_admin,clubs,created_at,phone,avatar_url"
       )
       .order("rank", { ascending: true });
 
@@ -110,12 +110,11 @@ export default function Index() {
         rank: row.rank,
         wins: row.wins ?? 0,
         losses: row.losses ?? 0,
-        singlesRating: row.singles_rating,
-        doublesRating: row.doubles_rating,
         matchFrequency: row.singles_match_frequency ?? null,
         singlesMatchFrequency: row.singles_match_frequency ?? null,
         doublesMatchFrequency: null,
         isAdmin: row.is_admin ?? false,
+        isSuperAdmin: (row as any).is_super_admin ?? false,
         clubs: row.clubs ?? null,
         createdAt: row.created_at,
         phone: row.phone ?? null,
@@ -235,15 +234,6 @@ export default function Index() {
   // --------------------------
   // UI
   // --------------------------
-  if (loading)
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p>Loading...</p>
-      </div>
-    );
-
-  if (!isAuthenticated) return null;
-
   const sortedPlayers = [...visiblePlayers].sort((a, b) => {
     // Primary: lower rank first
     if (a.rank !== b.rank) return a.rank - b.rank;
@@ -260,22 +250,34 @@ export default function Index() {
     if (aMatches !== bMatches) return bMatches - aMatches;
 
     // Next: higher singles rating
-    const aSingles = a.singlesRating ?? 0;
-    const bSingles = b.singlesRating ?? 0;
-    if (aSingles !== bSingles) return bSingles - aSingles;
-
     // Finally: alphabetical name
     return a.name.localeCompare(b.name);
   });
 
   const headerCurrentUser = currentUser || null;
 
+  // Redirect super admins to the Super Admin page
+  useEffect(() => {
+    if (headerCurrentUser?.isSuperAdmin) {
+      navigate("/super-admin");
+    }
+  }, [headerCurrentUser?.isSuperAdmin, navigate]);
+
+  if (loading)
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p>Loading...</p>
+      </div>
+    );
+
+  if (!isAuthenticated) return null;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100">
       <div className="container mx-auto px-4 py-8">
         
-        {/* Top-right profile */}
-        <div className="absolute top-4 right-4">
+        {/* Profile in top-right */}
+        <div className="absolute top-4 right-4 z-10">
           <ProfileDropdown />
         </div>
 

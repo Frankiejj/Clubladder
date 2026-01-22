@@ -74,11 +74,7 @@ export const PlayerDetailsModal = ({
     return club.city ? `${club.name} (${club.city})` : club.name;
   });
 
-  const singlesRating = Number.isFinite(player.singlesRating)
-    ? Math.round(player.singlesRating as number)
-    : 0;
-
-  const singlesMatchFrequency =
+  const matchesPerMonth =
     typeof player.matchFrequency === "number" ? player.matchFrequency : 0;
 
   const whatsappNumber = player.phone
@@ -150,12 +146,8 @@ export const PlayerDetailsModal = ({
                   )}
                 </div>
                 <div>
-                  <span className="font-semibold">Singles Rating:</span>{" "}
-                  {Number.isFinite(singlesRating) ? Math.round(singlesRating) : 0}
-                </div>
-                <div>
                   <span className="font-semibold">Match Frequency:</span>{" "}
-                  {singlesMatchFrequency} per month
+                  {matchesPerMonth} per month
                 </div>
                 <div>
                   <span className="font-semibold">Clubs:</span>{" "}

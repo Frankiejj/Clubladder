@@ -19,6 +19,7 @@ const MyMatches = () => {
   const [players, setPlayers] = useState<Player[]>(state?.players ?? []);
   const [challenges, setChallenges] = useState<Challenge[]>(state?.challenges ?? []);
   const [isLoading, setIsLoading] = useState(!state);
+  const [userMatches, setUserMatches] = useState<Challenge[]>([]);
 
   // Fetch data if we didn't get it via navigation state
   useEffect(() => {
@@ -31,7 +32,7 @@ const MyMatches = () => {
         const { data: playersData, error: playersError } = await (supabase as any)
           .from("players")
           .select(
-            "id,name,email,gender,rank,wins,losses,singles_rating,doubles_rating,singles_match_frequency,is_admin,clubs,created_at,phone,avatar_url"
+            "id,name,email,gender,rank,wins,losses,singles_match_frequency,is_admin,is_super_admin,clubs,created_at,phone,avatar_url"
           );
         if (playersError) throw playersError;
         const mappedPlayers: Player[] = (playersData || []).map((row) => ({
@@ -42,12 +43,11 @@ const MyMatches = () => {
           rank: row.rank,
           wins: row.wins ?? 0,
           losses: row.losses ?? 0,
-          singlesRating: row.singles_rating,
-          doublesRating: row.doubles_rating,
           matchFrequency: row.singles_match_frequency ?? null,
           singlesMatchFrequency: row.singles_match_frequency ?? null,
           doublesMatchFrequency: null,
           isAdmin: row.is_admin ?? false,
+          isSuperAdmin: (row as any).is_super_admin ?? false,
           clubs: row.clubs ?? null,
           createdAt: row.created_at,
           phone: row.phone ?? null,
@@ -102,6 +102,16 @@ const MyMatches = () => {
     }
   }, [state, toast]);
 
+  useEffect(() => {
+    if (!currentUser) return;
+    setUserMatches(
+      challenges.filter(
+        (challenge) =>
+          challenge.challengerId === currentUser.id || challenge.challengedId === currentUser.id
+      )
+    );
+  }, [challenges, currentUser]);
+
   if (isLoading || !currentUser) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center">
@@ -113,21 +123,6 @@ const MyMatches = () => {
       </div>
     );
   }
-
-  // Local state so we can update after scheduling
-  const [userMatches, setUserMatches] = useState<Challenge[]>(
-    challenges.filter(
-      (challenge) => challenge.challengerId === currentUser.id || challenge.challengedId === currentUser.id
-    )
-  );
-
-  useEffect(() => {
-    setUserMatches(
-      challenges.filter(
-        (challenge) => challenge.challengerId === currentUser.id || challenge.challengedId === currentUser.id
-      )
-    );
-  }, [challenges, currentUser.id]);
 
   const handleSchedule = async (matchId: string, datetimeIso: string) => {
     const { error } = await (supabase as any)

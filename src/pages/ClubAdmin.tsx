@@ -3,10 +3,11 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2, Users, AlertTriangle, ArrowLeft } from "lucide-react";
+import { Trash2, Users, AlertTriangle } from "lucide-react";
 import { Player } from "@/types/Player";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
+import { ProfileDropdown } from "@/components/ProfileDropdown";
 
 const ClubAdmin = () => {
   const { toast } = useToast();
@@ -73,14 +74,13 @@ const ClubAdmin = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 relative">
+      <div className="absolute top-4 right-4 z-10">
+        <ProfileDropdown />
+      </div>
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         {/* Header */}
         <div className="mb-8">
-          <Link to="/" className="inline-flex items-center gap-2 text-green-700 hover:text-green-800 mb-4">
-            <ArrowLeft className="h-4 w-4" />
-            Back to Ladder
-          </Link>
           <h1 className="text-3xl font-bold text-green-800 mb-2">Club Administration</h1>
           <p className="text-green-600">Manage players in your club</p>
         </div>

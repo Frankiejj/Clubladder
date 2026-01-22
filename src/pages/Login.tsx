@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,11 +11,44 @@ import { supabase } from "@/integrations/supabase/client";
 const Login = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const COOLDOWN_SECONDS = 60;
+  const RATE_LIMIT_SECONDS = 180;
 
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
   const [code, setCode] = useState("");
   const [step, setStep] = useState<"request" | "verify">("request");
+  const [cooldown, setCooldown] = useState(0);
+
+  const cooldownKey = (value: string) => `otpCooldown:login:${value.trim().toLowerCase()}`;
+
+  const getCooldown = (value: string) => {
+    if (!value.trim()) return 0;
+    const stored = localStorage.getItem(cooldownKey(value));
+    if (!stored) return 0;
+    const nextAllowed = Number(stored);
+    if (!Number.isFinite(nextAllowed)) return 0;
+    const remaining = Math.ceil((nextAllowed - Date.now()) / 1000);
+    return remaining > 0 ? remaining : 0;
+  };
+
+  const setCooldownWindow = (value: string, seconds = COOLDOWN_SECONDS) => {
+    if (!value.trim()) return;
+    const nextAllowed = Date.now() + seconds * 1000;
+    localStorage.setItem(cooldownKey(value), `${nextAllowed}`);
+    setCooldown(seconds);
+  };
+
+  useEffect(() => {
+    if (!email.trim()) {
+      setCooldown(0);
+      return;
+    }
+    const update = () => setCooldown(getCooldown(email));
+    update();
+    const timer = setInterval(update, 1000);
+    return () => clearInterval(timer);
+  }, [email]);
 
   const handleSendCode = async () => {
     if (!email.trim()) {
@@ -23,6 +56,15 @@ const Login = () => {
         title: "Email required",
         description: "Please enter your email.",
         variant: "destructive",
+      });
+      return;
+    }
+
+    const remaining = getCooldown(email);
+    if (remaining > 0) {
+      toast({
+        title: "Please wait",
+        description: `Try again in ${remaining} seconds.`,
       });
       return;
     }
@@ -65,14 +107,23 @@ const Login = () => {
     setSending(false);
 
     if (error) {
+      const isRateLimited =
+        (error as any)?.status === 429 ||
+        error.message.toLowerCase().includes("rate");
+      if (isRateLimited) {
+        setCooldownWindow(email, RATE_LIMIT_SECONDS);
+      }
       toast({
         title: "Login code error",
-        description: error.message,
+        description: error.message.includes("rate")
+          ? "Email rate limit exceeded. Please wait a few minutes and try again."
+          : error.message,
         variant: "destructive",
       });
       return;
     }
 
+    setCooldownWindow(email);
     setStep("verify");
     toast({
       title: "Code sent",
@@ -185,10 +236,10 @@ const Login = () => {
                     <Button
                       variant="outline"
                       onClick={handleSendCode}
-                      disabled={sending}
+                      disabled={sending || cooldown > 0}
                       className="w-full"
                     >
-                      Resend code
+                      {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend code"}
                     </Button>
                   </div>
                 </div>

@@ -20,6 +20,11 @@ interface UserProfileProps {
 export const UserProfile = ({ currentUser, onUpdateProfile, players, onRemovePlayer, challenges }: UserProfileProps) => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const resolvedAvatar =
+    currentUser.avatarUrl ||
+    (currentUser as any).avatar_url ||
+    (currentUser as any).avatar ||
+    null;
 
   const handleLogout = () => {
     // Clear all stored user data
@@ -61,7 +66,10 @@ export const UserProfile = ({ currentUser, onUpdateProfile, players, onRemovePla
         <DropdownMenuTrigger asChild>
           <Button className="flex items-center gap-2 p-2">
             <Avatar className="h-8 w-8">
-              <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
+              <AvatarImage
+                src={resolvedAvatar || undefined}
+                alt={currentUser.name}
+              />
               <AvatarFallback>
                 {currentUser.isSuperAdmin ? (
                   <Shield className="h-4 w-4 text-yellow-600" />

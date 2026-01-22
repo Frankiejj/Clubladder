@@ -15,21 +15,19 @@ export const generateMonthlyMatches = (players: Player[], ladderType: "singles" 
       return []; // Need at least 2 players with partners to create matches
     }
 
-    // Sort by doubles rating
-    const sortedPlayers = [...playersWithPartners].sort((a, b) => {
-      return a.doublesRating - b.doublesRating;
-    });
+    // Sort by rank (no doubles rating available)
+    const sortedPlayers = [...playersWithPartners].sort((a, b) => a.rank - b.rank);
 
     // Generate doubles matches
     sortedPlayers.forEach((player) => {
       const matchesToGenerate = (player as any).doublesMatchFrequency || 1;
       let matchesGenerated = 0;
 
-      // Find suitable opponents within 2 ratings
+      // Find suitable opponents within 2 rank positions
       const suitableOpponents = sortedPlayers.filter(opponent => {
         if (opponent.id === player.id) return false;
         
-        return Math.abs(player.doublesRating - opponent.doublesRating) <= 2;
+        return Math.abs(player.rank - opponent.rank) <= 2;
       });
 
       // Generate matches up to the player's doubles frequency preference
@@ -59,20 +57,18 @@ export const generateMonthlyMatches = (players: Player[], ladderType: "singles" 
       }
     });
   } else {
-    // Singles matches - existing logic
-    const sortedPlayers = [...players].sort((a, b) => {
-      return a.singlesRating - b.singlesRating;
-    });
+    // Singles matches - sort by rank (closest ranks play)
+    const sortedPlayers = [...players].sort((a, b) => a.rank - b.rank);
 
     sortedPlayers.forEach((player) => {
       const matchesToGenerate = player.matchFrequency;
       let matchesGenerated = 0;
 
-      // Find suitable opponents within 2 ratings
+      // Find suitable opponents within 2 rank positions
       const suitableOpponents = sortedPlayers.filter(opponent => {
         if (opponent.id === player.id) return false;
         
-        return Math.abs(player.singlesRating - opponent.singlesRating) <= 2;
+        return Math.abs(player.rank - opponent.rank) <= 2;
       });
 
       // Generate matches up to the player's frequency preference

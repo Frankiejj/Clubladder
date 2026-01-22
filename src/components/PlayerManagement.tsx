@@ -15,8 +15,6 @@ export const usePlayerManagement = (initialPlayers: Player[]) => {
       losses: 0,
       email: "",
       clubs: [],
-      singlesRating: 1,
-      doublesRating: 1,
       matchFrequency: 1,
       gender: "male"
     };
@@ -60,25 +58,8 @@ export const usePlayerManagement = (initialPlayers: Player[]) => {
   };
 
   const handleSelfRegistration = (playerData: Omit<Player, 'id' | 'wins' | 'losses'>) => {
-    // Calculate position based on rating and gender
-    const adjustedRating = playerData.gender === "female" ? playerData.singlesRating + 1 : playerData.singlesRating;
-    
-    // Find position among players with similar adjusted rating
-    const sortedPlayers = [...players].sort((a, b) => {
-      const aAdjusted = a.gender === "female" ? a.singlesRating + 1 : a.singlesRating;
-      const bAdjusted = b.gender === "female" ? b.singlesRating + 1 : b.singlesRating;
-      return bAdjusted - aAdjusted; // Higher rating = lower rank number
-    });
-    
-    let insertPosition = 1;
-    for (let i = 0; i < sortedPlayers.length; i++) {
-      const playerAdjusted = sortedPlayers[i].gender === "female" ? sortedPlayers[i].singlesRating + 1 : sortedPlayers[i].singlesRating;
-      if (adjustedRating >= playerAdjusted) {
-        insertPosition = sortedPlayers[i].rank;
-        break;
-      }
-      insertPosition = sortedPlayers[i].rank + 1;
-    }
+    // Place new players at the bottom of the ladder
+    const insertPosition = players.length ? Math.max(...players.map((p) => p.rank)) + 1 : 1;
 
     const newPlayer: Player = {
       ...playerData,

@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { User, Save, ArrowLeft } from "lucide-react";
+import { User, Save, ArrowLeft, Trash2 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,12 +21,12 @@ const Profile = () => {
     phone: "",
     club_id: "",
     singlesMatchFrequency: 1,
-    singlesRating: 0,
     avatarUrl: "",
   });
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const { clubs } = useClubs();
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -47,7 +47,7 @@ const Profile = () => {
 
         const { data: player, error } = await (supabase as any)
           .from("players")
-          .select("id,name,email,gender,rank,wins,losses,singles_rating,doubles_rating,singles_match_frequency,is_admin,clubs,created_at,phone,avatar_url")
+          .select("id,name,email,gender,rank,wins,losses,singles_match_frequency,is_admin,clubs,created_at,phone,avatar_url")
           .eq("email", session.user.email)
           .maybeSingle();
 
@@ -61,7 +61,6 @@ const Profile = () => {
           phone: player.phone || "",
           club_id: player.clubs?.[0] || "",
           singlesMatchFrequency: typeof player.singles_match_frequency === "number" ? player.singles_match_frequency : 1,
-          singlesRating: typeof player.singles_rating === "number" ? player.singles_rating : 0,
           avatarUrl: player.avatar_url || "",
         });
         setAvatarPreview(player.avatar_url || null);
@@ -85,10 +84,6 @@ const Profile = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!playerId) return;
-
-    const sanitizedRating = Number.isFinite(formData.singlesRating)
-      ? Math.max(0, Math.min(9, Math.round(formData.singlesRating)))
-      : 0;
 
     let uploadedAvatarUrl = formData.avatarUrl;
     if (avatarFile) {
@@ -116,7 +111,6 @@ const Profile = () => {
       .update({
         phone: formData.phone || null,
         singles_match_frequency: formData.singlesMatchFrequency,
-        singles_rating: sanitizedRating,
         avatar_url: uploadedAvatarUrl || null,
       })
       .eq("id", playerId);
@@ -134,6 +128,75 @@ const Profile = () => {
       title: "Profile Updated!",
       description: "Your profile has been successfully updated.",
     });
+  };
+
+  const handleDeleteProfile = async () => {
+    if (!playerId) return;
+    const ok = window.confirm("Are you sure you want to remove your profile? This will delete your account data.");
+    if (!ok) return;
+    setDeleting(true);
+
+    const avatarPath = (() => {
+      if (!formData.avatarUrl) return null;
+      const parts = formData.avatarUrl.split("/avatars/");
+      if (parts.length < 2) return null;
+      return decodeURIComponent(parts[1]);
+    })();
+
+    // Remove matches where the user participates
+    const { error: matchError } = await (supabase as any)
+      .from("matches")
+      .delete()
+      .or(`challenger_id.eq.${playerId},challenged_id.eq.${playerId}`);
+    if (matchError) {
+      toast({
+        title: "Delete failed",
+        description: `Could not remove matches: ${matchError.message}`,
+        variant: "destructive",
+      });
+      setDeleting(false);
+      return;
+    }
+
+    // Remove ladder memberships if table exists
+    const ladderMembershipsResp = await (supabase as any)
+      .from("ladder_memberships")
+      .delete()
+      .eq("player_id", playerId);
+    if (ladderMembershipsResp.error && ladderMembershipsResp.error.code !== "42P01") {
+      toast({
+        title: "Delete failed",
+        description: `Could not remove ladder memberships: ${ladderMembershipsResp.error.message}`,
+        variant: "destructive",
+      });
+      setDeleting(false);
+      return;
+    }
+
+    // Delete player
+    const { error } = await (supabase as any).from("players").delete().eq("id", playerId);
+    if (error) {
+      toast({
+        title: "Delete failed",
+        description: error.message,
+        variant: "destructive",
+      });
+      setDeleting(false);
+      return;
+    }
+
+    // Remove avatar from storage (best-effort)
+    if (avatarPath) {
+      await (supabase.storage.from("avatars") as any).remove([avatarPath]);
+    }
+
+    await supabase.auth.signOut();
+    toast({
+      title: "Profile removed",
+      description: "Your account has been deleted.",
+    });
+    setDeleting(false);
+    navigate("/login");
   };
 
   if (loading) {
@@ -270,34 +333,11 @@ const Profile = () => {
                 </div>
 
                 <div>
-                  <Label
-                    htmlFor="singlesRating"
-                    className="text-sm font-medium text-gray-700"
-                  >
-                    Singles Rating
-                  </Label>
-                  <Input
-                    id="singlesRating"
-                    type="number"
-                    min="0"
-                    max="9"
-                    step="1"
-                    value={formData.singlesRating}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        singlesRating: parseInt(e.target.value || "0", 10),
-                      })
-                    }
-                    className="mt-1"
-                    placeholder="0-9"
-                  />
-                </div>
-
-                <div>
-                  <Label className="text-sm font-medium text-gray-700">
-                    Club
-                  </Label>
+              <Label
+                className="text-sm font-medium text-gray-700"
+              >
+                Club
+              </Label>
                   <div className="mt-1 p-3 border rounded-md bg-muted">
                     {formData.club_id
                       ? (() => {
@@ -357,6 +397,16 @@ const Profile = () => {
                 >
                   <Save className="h-4 w-4" />
                   Save Profile
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  className="flex items-center gap-2"
+                  onClick={handleDeleteProfile}
+                  disabled={deleting}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {deleting ? "Removing..." : "Remove Profile"}
                 </Button>
               </div>
             </form>

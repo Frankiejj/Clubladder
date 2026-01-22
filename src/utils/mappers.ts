@@ -32,13 +32,12 @@ export const mapDbPlayer = (row: DbPlayer) => ({
   rank: row.rank,
   wins: row.wins ?? 0,
   losses: row.losses ?? 0,
-  singlesRating: row.singles_rating,
-  doublesRating: row.doubles_rating,
   matchFrequency: row.singles_match_frequency,
   singlesMatchFrequency: row.singles_match_frequency ?? null,
   doublesMatchFrequency: null,
   clubs: row.clubs ?? null,
   isAdmin: row.is_admin ?? false,
+  isSuperAdmin: (row as any).is_super_admin ?? false,
   createdAt: row.created_at ?? undefined,
 });
 

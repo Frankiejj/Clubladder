@@ -89,8 +89,6 @@ export type Database = {
           rank: number;
           wins: number | null;
           losses: number | null;
-          singles_rating: number | null;
-          doubles_rating: number | null;
           singles_match_frequency: number | null;
           is_admin: boolean | null;
           clubs: string[] | null;
@@ -105,8 +103,6 @@ export type Database = {
           rank?: number;
           wins?: number | null;
           losses?: number | null;
-          singles_rating?: number | null;
-          doubles_rating?: number | null;
           singles_match_frequency?: number | null;
           is_admin?: boolean | null;
           clubs?: string[] | null;

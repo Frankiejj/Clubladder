@@ -11,7 +11,11 @@ import ClubAdmin from "./pages/ClubAdmin";
 import Registration from "./pages/Registration";
 import Login from "./pages/Login";
 import Profile from "./pages/Profile";
+import MyLadder from "./pages/MyLadder";
 import Auth from "./pages/Auth";
+import AddClub from "./pages/AddClub";
+import Admin from "./pages/Admin";
+import SuperAdmin from "./pages/SuperAdmin";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -27,7 +31,11 @@ const App = () => (
           <Route path="/my-matches" element={<MyMatches />} />
           <Route path="/club-management" element={<ClubManagement />} />
           <Route path="/club-admin" element={<ClubAdmin />} />
+          <Route path="/add-club" element={<AddClub />} />
+          <Route path="/admin" element={<Admin />} />
+          <Route path="/super-admin" element={<SuperAdmin />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/my-ladder" element={<MyLadder />} />
           <Route path="/registration" element={<Registration />} />
           <Route path="/login" element={<Login />} />
           <Route path="/auth" element={<Auth />} />

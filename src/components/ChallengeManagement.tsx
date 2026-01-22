@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Challenge } from "@/pages/Index";
+import { Challenge } from "@/types/Challenge";
 import { Player } from "@/types/Player";
 import { useToast } from "@/hooks/use-toast";
 

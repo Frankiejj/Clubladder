@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Trophy, User } from "lucide-react";
-import { Challenge } from "@/pages/Index";
+import { Challenge } from "@/types/Challenge";
 import { Player } from "@/types/Player";
 
 interface MatchResultModalProps {
