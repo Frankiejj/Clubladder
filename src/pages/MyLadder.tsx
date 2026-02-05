@@ -386,7 +386,7 @@ const MyLadder = () => {
           </p>
         </div>
 
-        <Card className="shadow-xl">
+        <Card className="shadow-xl w-full max-w-full overflow-hidden">
           <CardHeader className="bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-t-lg">
             <CardTitle className="text-xl sm:text-2xl flex items-center gap-2">
               <ListOrdered className="h-6 w-6" />
@@ -438,7 +438,7 @@ const MyLadder = () => {
                 ) : ladders.length === 0 ? (
                   <p className="text-gray-600">No ladders available for this club.</p>
                 ) : (
-                  <div className="grid gap-4">
+                  <div className="grid gap-4 w-full">
                     {[...ladders].sort((a, b) => {
                       if (a.type === b.type) return (a.name || "").localeCompare(b.name || "");
                       return a.type === "singles" ? -1 : 1;
@@ -451,7 +451,7 @@ const MyLadder = () => {
                       const canJoinDoubles =
                         !requiresPartner || (partnerValue !== "none" && partnerValue !== "");
                       return (
-                        <Card key={ladder.id} className="border border-green-100">
+                        <Card key={ladder.id} className="border border-green-100 w-full max-w-full overflow-hidden">
                           <CardContent className="p-4 sm:p-5 space-y-4">
                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                               <div>
