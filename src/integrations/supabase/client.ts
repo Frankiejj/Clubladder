@@ -40,3 +40,8 @@ export const supabase = createClient<Database>(
     fetch: withApiKeyFetch,
   }
 );
+
+// Expose client in dev for debugging in browser console
+if (import.meta.env.DEV) {
+  (window as any).supabase = supabase;
+}

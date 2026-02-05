@@ -17,6 +17,7 @@ import AddClub from "./pages/AddClub";
 import Admin from "./pages/Admin";
 import SuperAdmin from "./pages/SuperAdmin";
 import NotFound from "./pages/NotFound";
+import TeamDetails from "./pages/TeamDetails";
 
 const queryClient = new QueryClient();
 
@@ -36,6 +37,7 @@ const App = () => (
           <Route path="/super-admin" element={<SuperAdmin />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/my-ladder" element={<MyLadder />} />
+          <Route path="/team/:membershipId" element={<TeamDetails />} />
           <Route path="/registration" element={<Registration />} />
           <Route path="/login" element={<Login />} />
           <Route path="/auth" element={<Auth />} />

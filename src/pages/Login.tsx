@@ -158,6 +158,18 @@ const Login = () => {
       return;
     }
 
+    const userId = data.session.user?.id;
+    if (userId) {
+      const { error: updateError } = await (supabase as any)
+        .from("players")
+        .update({ user_id: userId })
+        .eq("email", email)
+        .is("user_id", null);
+      if (updateError) {
+        console.warn("Failed to set players.user_id on login", updateError);
+      }
+    }
+
     toast({
       title: "Logged in",
       description: "Welcome back!",

@@ -15,6 +15,7 @@ interface HeaderProps {
   challenges?: Challenge[];
   players?: Player[];
   onRemovePlayer?: (playerId: string) => void;
+  ladderSelector?: React.ReactNode;
 }
 
 export const Header = ({ 
@@ -23,7 +24,8 @@ export const Header = ({
   onUpdateProfile,
   challenges,
   players,
-  onRemovePlayer
+  onRemovePlayer,
+  ladderSelector
 }: HeaderProps) => {
   const location = useLocation();
   
@@ -36,10 +38,14 @@ export const Header = ({
       <p className="text-lg sm:text-xl text-green-700 mb-6">View upcoming matches and results!</p>
       
       <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
-        <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-lg shadow-sm">
-          <Users className="h-5 w-5 text-green-600" />
-          <span className="font-semibold text-green-800">{playersCount} Players</span>
-        </div>
+        {ladderSelector ? (
+          ladderSelector
+        ) : (
+          <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-lg shadow-sm">
+            <Users className="h-5 w-5 text-green-600" />
+            <span className="font-semibold text-green-800">{playersCount} Players</span>
+          </div>
+        )}
       </div>
     </div>
   );

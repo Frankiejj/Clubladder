@@ -43,6 +43,11 @@ export default function Registration() {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
 
+  const formatLadderName = (name?: string | null, fallback?: string) => {
+    if (!name) return fallback || "Ladder";
+    return name.replace(/\s*\((Singles|Doubles)\)\s*/gi, " ").trim();
+  };
+
   const cooldownKey = (value: string) => `otpCooldown:register:${value.trim().toLowerCase()}`;
 
   const getCooldown = (value: string) => {
@@ -340,6 +345,7 @@ export default function Registration() {
 
     const playerId = crypto.randomUUID();
 
+    const userId = verifiedSession.session.user.id;
     const { data: inserted, error: insertError } = await (supabase as any)
       .from("players")
       .insert({
@@ -355,6 +361,7 @@ export default function Registration() {
         is_admin: false,
         clubs: clubId ? [clubId] : [],
         avatar_url: null,
+        user_id: userId,
       })
       .select("id")
       .single();
@@ -373,7 +380,7 @@ export default function Registration() {
     if (avatarFile && inserted?.id) {
       const ext = avatarFile.name.split(".").pop() || "jpg";
       const playerIdForAvatar = inserted?.id || playerId;
-      const filePath = `avatars/${playerIdForAvatar}.${ext}`;
+      const filePath = `${playerIdForAvatar}.${ext}`;
       const { error: uploadError } = await (supabase.storage.from("avatars") as any).upload(
         filePath,
         avatarFile,
@@ -393,23 +400,61 @@ export default function Registration() {
 
     // Add ladder membership if a ladder was chosen
     if (selectedLadderId) {
+      let nextRank = 1;
+      const { data: rankRows, error: rankError } = await (supabase as any)
+        .from("ladder_memberships")
+        .select("rank")
+        .eq("ladder_id", selectedLadderId)
+        .order("rank", { ascending: false })
+        .limit(1);
+      if (!rankError) {
+        const top = (rankRows as any[] | null)?.[0]?.rank;
+        if (Number.isFinite(top)) {
+          nextRank = Number(top) + 1;
+        }
+      }
+
       const membershipPayload: any = {
         ladder_id: selectedLadderId,
         player_id: inserted?.id || playerId,
         match_frequency: matchFrequency,
         partner_id: isDoublesLadder ? partnerId || null : null,
+        rank: nextRank,
       };
 
       const { error: membershipError } = await (supabase as any)
-        .from("ladder_membership")
+        .from("ladder_memberships")
         .insert(membershipPayload);
 
       if (membershipError) {
-        toast({
-          title: "Registration warning",
-          description: "Profile created, but could not add ladder membership.",
-          variant: "destructive",
-        });
+        if (membershipError.code === "23505") {
+          const { error: updateError } = await (supabase as any)
+            .from("ladder_memberships")
+            .update({
+              match_frequency: matchFrequency,
+              partner_id: isDoublesLadder ? partnerId || null : null,
+            })
+            .eq("ladder_id", selectedLadderId)
+            .eq("player_id", inserted?.id || playerId);
+          if (updateError) {
+            toast({
+              title: "Registration warning",
+              description: "Profile created, but could not update ladder membership.",
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "Registration complete",
+              description: "You're verified and added to the ladder.",
+            });
+          }
+        } else {
+          toast({
+            title: "Registration warning",
+            description: "Profile created, but could not add ladder membership.",
+            variant: "destructive",
+          });
+        }
       } else {
         toast({
           title: "Registration complete",
@@ -572,9 +617,14 @@ export default function Registration() {
                     <SelectItem value="none" disabled={laddersLoading}>
                       {laddersLoading ? "Loading ladders..." : "Choose a ladder"}
                     </SelectItem>
-                    {ladders.map((ladder) => (
+                    {[...ladders]
+                      .sort((a, b) => {
+                        if (a.type === b.type) return (a.name || "").localeCompare(b.name || "");
+                        return a.type === "singles" ? -1 : 1;
+                      })
+                      .map((ladder) => (
                       <SelectItem key={ladder.id} value={ladder.id}>
-                        {ladder.name || ladder.type}
+                        {formatLadderName(ladder.name, ladder.type)}
                       </SelectItem>
                     ))}
                     {!laddersLoading && ladders.length === 0 && (

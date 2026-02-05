@@ -19,8 +19,8 @@ const Profile = () => {
   const [formData, setFormData] = useState({
     full_name: "",
     phone: "",
-    club_id: "",
-    singlesMatchFrequency: 1,
+    club_ids: [] as string[],
+    email: "",
     avatarUrl: "",
   });
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -59,8 +59,8 @@ const Profile = () => {
         setFormData({
           full_name: player.name || "",
           phone: player.phone || "",
-          club_id: player.clubs?.[0] || "",
-          singlesMatchFrequency: typeof player.singles_match_frequency === "number" ? player.singles_match_frequency : 1,
+          club_ids: (player.clubs || []).filter(Boolean),
+          email: player.email || "",
           avatarUrl: player.avatar_url || "",
         });
         setAvatarPreview(player.avatar_url || null);
@@ -88,7 +88,7 @@ const Profile = () => {
     let uploadedAvatarUrl = formData.avatarUrl;
     if (avatarFile) {
       const ext = avatarFile.name.split(".").pop() || "jpg";
-      const filePath = `avatars/${playerId}.${ext}`;
+      const filePath = `${playerId}/${Date.now()}.${ext}`;
       const { error: uploadError } = await (supabase.storage.from("avatars") as any).upload(
         filePath,
         avatarFile,
@@ -110,7 +110,7 @@ const Profile = () => {
       .from("players")
       .update({
         phone: formData.phone || null,
-        singles_match_frequency: formData.singlesMatchFrequency,
+        clubs: formData.club_ids.length ? formData.club_ids : null,
         avatar_url: uploadedAvatarUrl || null,
       })
       .eq("id", playerId);
@@ -123,6 +123,10 @@ const Profile = () => {
       });
       return;
     }
+
+    setFormData((prev) => ({ ...prev, avatarUrl: uploadedAvatarUrl || "" }));
+    setAvatarPreview(uploadedAvatarUrl || null);
+    setAvatarFile(null);
 
     toast({
       title: "Profile Updated!",
@@ -239,7 +243,7 @@ const Profile = () => {
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100">
       <div className="container mx-auto px-2 sm:px-4 py-8">
         <div className="mb-6">
-          <Link to="/">
+          <Link to="/?ladder=singles">
             <Button className="mb-4">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Ladder
@@ -308,9 +312,43 @@ const Profile = () => {
                     disabled
                     className="mt-1"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Name changes are disabled.
-                  </p>
+                </div>
+
+                <div>
+                  <Label
+                    htmlFor="email"
+                    className="text-sm font-medium text-gray-700"
+                  >
+                    Email
+                  </Label>
+                  <Input
+                    id="email"
+                    value={formData.email}
+                    disabled
+                    className="mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">My Club</Label>
+                  <div className="mt-2">
+                    <Input
+                      value={
+                        formData.club_ids.length
+                          ? formData.club_ids
+                              .map((clubId) => {
+                                const club = clubs.find((c) => c.id === clubId);
+                                return club
+                                  ? `${club.name}${club.city ? ` (${club.city})` : ""}`
+                                  : clubId;
+                              })
+                              .join(", ")
+                          : "No club selected"
+                      }
+                      disabled
+                      className=""
+                    />
+                  </div>
                 </div>
 
                 <div>
@@ -330,63 +368,6 @@ const Profile = () => {
                     className="mt-1"
                     placeholder="+31 6 12345678"
                   />
-                </div>
-
-                <div>
-              <Label
-                className="text-sm font-medium text-gray-700"
-              >
-                Club
-              </Label>
-                  <div className="mt-1 p-3 border rounded-md bg-muted">
-                    {formData.club_id
-                      ? (() => {
-                          const club = clubs.find((c) => c.id === formData.club_id);
-                          return club ? `${club.name}${club.city ? ` (${club.city})` : ""}` : formData.club_id;
-                        })()
-                      : "No club selected"}
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Club changes are disabled.
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-green-700 border-b pb-2">
-                  Match Frequency Settings
-                </h3>
-
-                <div>
-                  <Label
-                    htmlFor="singlesFreq"
-                    className="text-sm font-medium text-gray-700"
-                  >
-                    Singles Ladder - Matches per Month
-                  </Label>
-                  <Select
-                    value={formData.singlesMatchFrequency.toString()}
-                    onValueChange={(value) =>
-                      setFormData({
-                        ...formData,
-                        singlesMatchFrequency: parseInt(value, 10),
-                      })
-                    }
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Select frequency" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="0">0</SelectItem>
-                      <SelectItem value="1">1</SelectItem>
-                      <SelectItem value="2">2</SelectItem>
-                      <SelectItem value="3">3</SelectItem>
-                      <SelectItem value="4">4</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-gray-500 mt-1">
-                    How many singles matches do you want to play each month?
-                  </p>
                 </div>
               </div>
 

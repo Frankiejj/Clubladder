@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Select,
   SelectContent,
@@ -28,9 +29,17 @@ type MembershipRow = {
   player_id: string;
   match_frequency: number | null;
   partner_id?: string | null;
+  rank?: number | null;
+  team_avatar_url?: string | null;
+  is_partner?: boolean;
 };
 
 const MEMBERSHIP_TABLES = ["ladder_memberships"];
+
+const formatLadderName = (name?: string | null, fallback?: string) => {
+  if (!name) return fallback || "Ladder";
+  return name.replace(/\s*\((Singles|Doubles)\)\s*/gi, " ").trim();
+};
 
 const MyLadder = () => {
   const { toast } = useToast();
@@ -52,6 +61,8 @@ const MyLadder = () => {
   const [membershipTable, setMembershipTable] = useState<string | null>(null);
   const [frequencyByLadder, setFrequencyByLadder] = useState<Record<string, number>>({});
   const [partnerByLadder, setPartnerByLadder] = useState<Record<string, string>>({});
+  const [teamAvatarFileByLadder, setTeamAvatarFileByLadder] = useState<Record<string, File | null>>({});
+  const [teamAvatarPreviewByLadder, setTeamAvatarPreviewByLadder] = useState<Record<string, string>>({});
   const [clubPlayers, setClubPlayers] = useState<Array<{ id: string; name: string }>>([]);
   const [savingLadderId, setSavingLadderId] = useState<string | null>(null);
 
@@ -176,8 +187,22 @@ const MyLadder = () => {
       ladders.forEach((ladder) => {
         if (next[ladder.id]) return;
         const membership = membershipsByLadder[ladder.id];
-        if (membership?.partner_id) {
+        if (membership?.partner_id && !membership.is_partner) {
           next[ladder.id] = membership.partner_id;
+        } else if (membership?.is_partner && membership.player_id) {
+          next[ladder.id] = membership.player_id;
+        }
+      });
+      return next;
+    });
+
+    setTeamAvatarPreviewByLadder((prev) => {
+      const next = { ...prev };
+      ladders.forEach((ladder) => {
+        if (next[ladder.id]) return;
+        const membership = membershipsByLadder[ladder.id];
+        if (membership?.team_avatar_url) {
+          next[ladder.id] = membership.team_avatar_url;
         }
       });
       return next;
@@ -203,18 +228,62 @@ const MyLadder = () => {
 
     const frequency = frequencyByLadder[ladder.id] ?? 1;
     const partnerId = ladder.type === "doubles" ? (partnerByLadder[ladder.id] || null) : null;
-    const hasMembership = Boolean(membershipsByLadder[ladder.id]);
+    const membership = membershipsByLadder[ladder.id];
+    const hasMembership = Boolean(membership);
+    const isPartnerMembership = Boolean(membership?.is_partner);
+    const teamAvatarFile = teamAvatarFileByLadder[ladder.id] || null;
 
     setSavingLadderId(ladder.id);
     try {
+      let uploadedTeamAvatarUrl: string | null = teamAvatarPreviewByLadder[ladder.id] || null;
+      if (ladder.type === "doubles" && teamAvatarFile) {
+        const ext = teamAvatarFile.name.split(".").pop() || "jpg";
+        const filePath = `${ladder.id}/${player.id}-${Date.now()}.${ext}`;
+        const { error: uploadError } = await (supabase.storage.from("team-avatars") as any).upload(
+          filePath,
+          teamAvatarFile,
+          { upsert: true }
+        );
+        if (uploadError) {
+          toast({
+            title: "Team avatar upload failed",
+            description: uploadError.message,
+            variant: "destructive",
+          });
+          setSavingLadderId(null);
+          return;
+        }
+        const { data: publicUrlData } = (supabase.storage.from("team-avatars") as any).getPublicUrl(filePath);
+        uploadedTeamAvatarUrl = publicUrlData?.publicUrl ?? null;
+      }
       if (hasMembership) {
         const { error } = await (supabase as any)
           .from(membershipTable)
-          .update({ match_frequency: frequency, partner_id: partnerId })
-          .eq("ladder_id", ladder.id)
-          .eq("player_id", player.id);
+          .update({
+            match_frequency: frequency,
+            partner_id: partnerId,
+            team_avatar_url: ladder.type === "doubles" ? uploadedTeamAvatarUrl : null,
+          })
+          .eq("id", membership?.id);
         if (error) throw error;
       } else {
+        // Assign lowest rank (append to bottom) within this ladder
+        let nextRank = 1;
+        const { data: rankRows, error: rankError } = await (supabase as any)
+          .from("ladder_memberships")
+          .select("rank")
+          .eq("ladder_id", ladder.id)
+          .order("rank", { ascending: false })
+          .limit(1);
+        if (rankError) {
+          console.error("Error loading ladder ranks", rankError);
+        } else {
+          const top = (rankRows as any[] | null)?.[0]?.rank;
+          if (Number.isFinite(top)) {
+            nextRank = Number(top) + 1;
+          }
+        }
+
         const { error } = await (supabase as any)
           .from(membershipTable)
           .insert({
@@ -222,8 +291,25 @@ const MyLadder = () => {
             player_id: player.id,
             match_frequency: frequency,
             partner_id: partnerId,
+            rank: nextRank,
+            team_avatar_url: ladder.type === "doubles" ? uploadedTeamAvatarUrl : null,
           });
-        if (error) throw error;
+        if (error) {
+          if (error.code === "23505") {
+            const { error: updateError } = await (supabase as any)
+              .from(membershipTable)
+              .update({
+                match_frequency: frequency,
+                partner_id: partnerId,
+                team_avatar_url: ladder.type === "doubles" ? uploadedTeamAvatarUrl : null,
+              })
+              .eq("ladder_id", ladder.id)
+              .eq("player_id", player.id);
+            if (updateError) throw updateError;
+          } else {
+            throw error;
+          }
+        }
       }
 
       if (ladder.type === "singles") {
@@ -242,20 +328,16 @@ const MyLadder = () => {
         }
       }
 
-      setMembershipsByLadder((prev) => ({
-        ...prev,
-        [ladder.id]: {
-          ...(prev[ladder.id] || {}),
-          ladder_id: ladder.id,
-          player_id: player.id,
-          match_frequency: frequency,
-          partner_id: partnerId,
-        },
-      }));
+      const membershipResult = await fetchMemberships(player.id);
+      setMembershipsByLadder(membershipResult.byLadder);
+      if (ladder.type === "doubles" && teamAvatarFile) {
+        setTeamAvatarPreviewByLadder((prev) => ({ ...prev, [ladder.id]: uploadedTeamAvatarUrl || "" }));
+        setTeamAvatarFileByLadder((prev) => ({ ...prev, [ladder.id]: null }));
+      }
 
       toast({
         title: hasMembership ? "Settings updated" : "Joined ladder",
-        description: ladder.name || ladder.type,
+        description: formatLadderName(ladder.name, ladder.type),
       });
     } catch (error: any) {
       toast({
@@ -314,7 +396,7 @@ const MyLadder = () => {
           </Link>
           <h1 className="text-2xl sm:text-3xl font-bold text-green-800 flex items-center gap-2">
             <ListOrdered className="h-7 w-7 sm:h-8 sm:w-8" />
-            My Ladder
+            My Ladders
           </h1>
           <p className="text-md sm:text-lg text-green-600">
             Join your club ladder and set your match frequency
@@ -374,24 +456,33 @@ const MyLadder = () => {
                   <p className="text-gray-600">No ladders available for this club.</p>
                 ) : (
                   <div className="grid gap-4">
-                    {ladders.map((ladder) => {
+                    {[...ladders].sort((a, b) => {
+                      if (a.type === b.type) return (a.name || "").localeCompare(b.name || "");
+                      return a.type === "singles" ? -1 : 1;
+                    }).map((ladder) => {
                       const membership = membershipsByLadder[ladder.id];
+                      const isPartnerMembership = Boolean(membership?.is_partner);
                       const frequencyValue = frequencyByLadder[ladder.id] ?? 1;
                       const partnerValue = partnerByLadder[ladder.id] || "none";
-
+                      const requiresPartner = ladder.type === "doubles";
+                      const canJoinDoubles =
+                        !requiresPartner || (partnerValue !== "none" && partnerValue !== "");
                       return (
                         <Card key={ladder.id} className="border border-green-100">
                           <CardContent className="p-4 sm:p-5 space-y-4">
                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                               <div>
                                 <div className="text-lg font-semibold text-green-800">
-                                  {ladder.name || "Club Ladder"}
+                                  {formatLadderName(ladder.name, "Club Ladder")}
                                 </div>
                                 <div className="text-sm text-gray-500 capitalize">{ladder.type}</div>
                               </div>
                               <div className="text-sm">
                                 {membership ? (
-                                  <span className="text-emerald-600 font-medium">Joined</span>
+                                  <span className="inline-flex items-center gap-2 text-emerald-700 font-medium">
+                                    <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />
+                                    You're a member
+                                  </span>
                                 ) : (
                                   <span className="text-gray-500">Not joined</span>
                                 )}
@@ -405,13 +496,14 @@ const MyLadder = () => {
                                 </Label>
                                 <Select
                                   value={partnerValue}
-                                  onValueChange={(value) =>
+                                  onValueChange={(value) => {
+                                    const nextValue = value === "none" ? "" : value;
                                     setPartnerByLadder((prev) => ({
                                       ...prev,
-                                      [ladder.id]: value === "none" ? "" : value,
-                                    }))
-                                  }
-                                  disabled={clubPlayers.length === 0}
+                                      [ladder.id]: nextValue,
+                                    }));
+                                  }}
+                                  disabled={clubPlayers.length === 0 || Boolean(membership)}
                                 >
                                   <SelectTrigger className="mt-1">
                                     <SelectValue placeholder="Select partner" />
@@ -432,15 +524,17 @@ const MyLadder = () => {
                                     )}
                                   </SelectContent>
                                 </Select>
-                                <p className="text-xs text-gray-500 mt-1">
-                                  Partner must be a member of the same club.
-                                </p>
+                                {membership && (
+                                  <p className="text-xs text-gray-600 mt-1">
+                                    Leave the ladder to change partner.
+                                  </p>
+                                )}
                               </div>
                             )}
 
                             <div>
                               <Label className="text-sm font-medium text-gray-700">
-                                Match frequency per month
+                                Match frequency per round (2 weeks)
                               </Label>
                               <Select
                                 value={frequencyValue.toString()}
@@ -458,25 +552,160 @@ const MyLadder = () => {
                                   <SelectItem value="0">0</SelectItem>
                                   <SelectItem value="1">1</SelectItem>
                                   <SelectItem value="2">2</SelectItem>
-                                  <SelectItem value="3">3</SelectItem>
-                                  <SelectItem value="4">4</SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>
 
-                            <div className="flex justify-end">
+                            {ladder.type === "doubles" && (
+                              <div>
+                                <Label className="text-sm font-medium text-gray-700">
+                                  Team avatar
+                                </Label>
+                                <div className="mt-2 flex items-center gap-4">
+                                  <Avatar className="h-16 w-16">
+                                    <AvatarImage
+                                      src={teamAvatarPreviewByLadder[ladder.id] || undefined}
+                                      alt="Team avatar"
+                                    />
+                                    <AvatarFallback className="bg-green-100 text-green-700">TM</AvatarFallback>
+                                  </Avatar>
+                                  <div className="flex flex-col gap-2">
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0] || null;
+                                        setTeamAvatarFileByLadder((prev) => ({ ...prev, [ladder.id]: file }));
+                                        setTeamAvatarPreviewByLadder((prev) => ({
+                                          ...prev,
+                                          [ladder.id]: file ? URL.createObjectURL(file) : prev[ladder.id],
+                                        }));
+                                      }}
+                                    />
+                                    <p className="text-xs text-gray-500">
+                                      Upload a team image for this doubles ladder.
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="flex flex-col sm:flex-row sm:justify-end gap-2">
+                              {membership && (
+                                <Button
+                                  variant="destructive"
+                                  onClick={async () => {
+                                    if (!membershipTable) return;
+                                    const ok = window.confirm("Leave this ladder?");
+                                      if (!ok) return;
+                                      setSavingLadderId(ladder.id);
+                                  let membershipId = membership?.id || null;
+                                  if (!membershipId) {
+                                    const latest = await fetchMemberships(player.id);
+                                    setMembershipsByLadder(latest.byLadder);
+                                    membershipId = latest.byLadder[ladder.id]?.id || null;
+                                  }
+
+                                  if (!membershipId) {
+                                    setSavingLadderId(null);
+                                    toast({
+                                      title: "Leave failed",
+                                      description: "No membership found for this ladder.",
+                                      variant: "destructive",
+                                    });
+                                    return;
+                                  }
+
+                                  const leaveResponse =
+                                    ladder.type === "doubles"
+                                      ? await (supabase as any)
+                                          .from(membershipTable)
+                                          .delete()
+                                          .eq("ladder_id", ladder.id)
+                                          .or(`player_id.eq.${player.id},partner_id.eq.${player.id}`)
+                                      : await (supabase as any)
+                                          .from(membershipTable)
+                                          .delete()
+                                          .eq("ladder_id", ladder.id)
+                                          .eq("player_id", player.id);
+                                  const error = leaveResponse?.error;
+                                  setSavingLadderId(null);
+                                  if (error) {
+                                    toast({
+                                      title: "Leave failed",
+                                      description: error.message,
+                                      variant: "destructive",
+                                      });
+                                      return;
+                                    }
+                                      const membershipResult = await fetchMemberships(player.id);
+                                      setMembershipsByLadder(membershipResult.byLadder);
+                                      setPartnerByLadder((prev) => {
+                                        const next = { ...prev };
+                                        delete next[ladder.id];
+                                        return next;
+                                      });
+                                      setFrequencyByLadder((prev) => {
+                                        const next = { ...prev };
+                                        delete next[ladder.id];
+                                        return next;
+                                      });
+                                      setTeamAvatarPreviewByLadder((prev) => {
+                                        const next = { ...prev };
+                                        delete next[ladder.id];
+                                        return next;
+                                      });
+                                      setTeamAvatarFileByLadder((prev) => {
+                                        const next = { ...prev };
+                                        delete next[ladder.id];
+                                        return next;
+                                      });
+                                      if (isPartnerMembership) {
+                                        toast({
+                                          title: "Left ladder",
+                                          description: formatLadderName(ladder.name, ladder.type),
+                                        });
+                                        return;
+                                      }
+                                      if (membershipResult.byLadder[ladder.id]) {
+                                        toast({
+                                          title: "Leave failed",
+                                          description: "Membership still exists after delete.",
+                                          variant: "destructive",
+                                        });
+                                        return;
+                                      }
+                                      toast({
+                                        title: "Left ladder",
+                                        description: formatLadderName(ladder.name, ladder.type),
+                                      });
+                                    }}
+                                  disabled={!membershipTable || savingLadderId === ladder.id}
+                                >
+                                  Leave ladder
+                                </Button>
+                              )}
                               <Button
                                 onClick={() => handleSave(ladder)}
-                                disabled={!membershipTable || savingLadderId === ladder.id}
+                                disabled={
+                                  !membershipTable ||
+                                  savingLadderId === ladder.id ||
+                                  (!membership && requiresPartner && !canJoinDoubles)
+                                }
                                 className="bg-green-600 hover:bg-green-700 flex items-center gap-2"
                               >
                                 <Save className="h-4 w-4" />
                                 {savingLadderId === ladder.id
                                   ? "Saving..."
                                   : membership
-                                  ? "Update settings"
+                                  ? "Update"
                                   : "Join ladder"}
                               </Button>
+                              {!membership && requiresPartner && !canJoinDoubles && (
+                                <p className="text-xs text-red-600 mt-2">
+                                  Select a doubles partner to join this ladder.
+                                </p>
+                              )}
                             </div>
                           </CardContent>
                         </Card>
@@ -497,8 +726,8 @@ const fetchMemberships = async (playerId: string) => {
   for (const table of MEMBERSHIP_TABLES) {
     const { data, error } = await (supabase as any)
       .from(table)
-      .select("id,ladder_id,player_id,match_frequency,partner_id")
-      .eq("player_id", playerId);
+      .select("id,ladder_id,player_id,match_frequency,partner_id,team_avatar_url")
+      .or(`player_id.eq.${playerId},partner_id.eq.${playerId}`);
 
     if (error) {
       if (error.code === "42P01") {
@@ -509,7 +738,10 @@ const fetchMemberships = async (playerId: string) => {
 
     const rows = (data as MembershipRow[]) || [];
     const byLadder = rows.reduce<Record<string, MembershipRow>>((acc, row) => {
-      acc[row.ladder_id] = row;
+      const isPartner = row.partner_id === playerId && row.player_id !== playerId;
+      if (!acc[row.ladder_id] || !isPartner) {
+        acc[row.ladder_id] = { ...row, is_partner: isPartner };
+      }
       return acc;
     }, {});
     return { table, rows, byLadder };
