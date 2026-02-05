@@ -28,12 +28,6 @@ export default function Registration() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [clubId, setClubId] = useState("");
-  const [ladders, setLadders] = useState<Array<{ id: string; name: string; type: "singles" | "doubles" }>>([]);
-  const [laddersLoading, setLaddersLoading] = useState(false);
-  const [selectedLadderId, setSelectedLadderId] = useState("");
-  const [clubPlayers, setClubPlayers] = useState<Array<{ id: string; name: string; clubs: string[] | null }>>([]);
-  const [partnerId, setPartnerId] = useState("");
-  const [matchFrequency, setMatchFrequency] = useState(1);
   const [availableSports, setAvailableSports] = useState<string[]>([]);
   const [sportsLoading, setSportsLoading] = useState(true);
   const [otpSent, setOtpSent] = useState(false);
@@ -42,11 +36,6 @@ export default function Registration() {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
-
-  const formatLadderName = (name?: string | null, fallback?: string) => {
-    if (!name) return fallback || "Ladder";
-    return name.replace(/\s*\((Singles|Doubles)\)\s*/gi, " ").trim();
-  };
 
   const cooldownKey = (value: string) => `otpCooldown:register:${value.trim().toLowerCase()}`;
 
@@ -108,65 +97,6 @@ export default function Registration() {
 
     fetchSports();
   }, []);
-
-  useEffect(() => {
-    const loadLadders = async () => {
-      if (!clubId) {
-        setLadders([]);
-        setSelectedLadderId("");
-        setPartnerId("");
-        return;
-      }
-      setLaddersLoading(true);
-      const { data, error } = await (supabase as any)
-        .from("ladders")
-        .select("id,name,type")
-        .eq("club_id", clubId);
-      if (error) {
-        console.error("Error loading ladders", error);
-        toast({
-          title: "Could not load ladders",
-          description: error.message,
-          variant: "destructive",
-        });
-        setLadders([]);
-      } else {
-        setLadders((data as any[]) || []);
-      }
-      setLaddersLoading(false);
-    };
-
-    const loadClubPlayers = async () => {
-      if (!clubId) {
-        setClubPlayers([]);
-        setPartnerId("");
-        return;
-      }
-      const { data, error } = await (supabase as any)
-        .from("players")
-        .select("id,name,clubs")
-        .contains("clubs", [clubId]);
-      if (error) {
-        console.error("Error loading club players", error);
-        setClubPlayers([]);
-        return;
-      }
-      setClubPlayers((data as any[]) || []);
-    };
-
-    loadLadders();
-    loadClubPlayers();
-  }, [clubId, toast]);
-
-  const selectedLadder = ladders.find((l) => l.id === selectedLadderId);
-  const isDoublesLadder = selectedLadder?.type === "doubles";
-
-  // Clear partner if switching away from doubles
-  useEffect(() => {
-    if (!isDoublesLadder && partnerId) {
-      setPartnerId("");
-    }
-  }, [isDoublesLadder, partnerId]);
 
   const handleRegister = async () => {
     if (!name.trim() || !email.trim() || !sport || !clubId || !phone.trim()) {
@@ -357,7 +287,7 @@ export default function Registration() {
         rank: nextRank, // new players go to bottom
         wins: 0,
         losses: 0,
-        singles_match_frequency: matchFrequency,
+        singles_match_frequency: null,
         is_admin: false,
         clubs: clubId ? [clubId] : [],
         avatar_url: null,
@@ -398,75 +328,10 @@ export default function Registration() {
       }
     }
 
-    // Add ladder membership if a ladder was chosen
-    if (selectedLadderId) {
-      let nextRank = 1;
-      const { data: rankRows, error: rankError } = await (supabase as any)
-        .from("ladder_memberships")
-        .select("rank")
-        .eq("ladder_id", selectedLadderId)
-        .order("rank", { ascending: false })
-        .limit(1);
-      if (!rankError) {
-        const top = (rankRows as any[] | null)?.[0]?.rank;
-        if (Number.isFinite(top)) {
-          nextRank = Number(top) + 1;
-        }
-      }
-
-      const membershipPayload: any = {
-        ladder_id: selectedLadderId,
-        player_id: inserted?.id || playerId,
-        match_frequency: matchFrequency,
-        partner_id: isDoublesLadder ? partnerId || null : null,
-        rank: nextRank,
-      };
-
-      const { error: membershipError } = await (supabase as any)
-        .from("ladder_memberships")
-        .insert(membershipPayload);
-
-      if (membershipError) {
-        if (membershipError.code === "23505") {
-          const { error: updateError } = await (supabase as any)
-            .from("ladder_memberships")
-            .update({
-              match_frequency: matchFrequency,
-              partner_id: isDoublesLadder ? partnerId || null : null,
-            })
-            .eq("ladder_id", selectedLadderId)
-            .eq("player_id", inserted?.id || playerId);
-          if (updateError) {
-            toast({
-              title: "Registration warning",
-              description: "Profile created, but could not update ladder membership.",
-              variant: "destructive",
-            });
-          } else {
-            toast({
-              title: "Registration complete",
-              description: "You're verified and added to the ladder.",
-            });
-          }
-        } else {
-          toast({
-            title: "Registration warning",
-            description: "Profile created, but could not add ladder membership.",
-            variant: "destructive",
-          });
-        }
-      } else {
-        toast({
-          title: "Registration complete",
-          description: "You're verified and added to the ladder.",
-        });
-      }
-    } else {
-      toast({
-        title: "Registration complete",
-        description: "You're verified. You can join a ladder later.",
-      });
-    }
+    toast({
+      title: "Registration complete",
+      description: "You're verified. You can join a ladder later.",
+    });
 
     setLoading(false);
     navigate("/");
@@ -583,8 +448,6 @@ export default function Registration() {
                 onValueChange={(value) => {
                   const chosen = value === "none" ? "" : value;
                   setClubId(chosen);
-                  setSelectedLadderId("");
-                  setPartnerId("");
                 }}
               >
                 <SelectTrigger className="mt-1">
@@ -602,92 +465,6 @@ export default function Registration() {
               </Select>
             </div>
 
-            {clubId && (
-              <div>
-                <Label>Ladder</Label>
-                <Select
-                  value={selectedLadderId || "none"}
-                  onValueChange={(value) => setSelectedLadderId(value === "none" ? "" : value)}
-                  disabled={laddersLoading}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select ladder" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none" disabled={laddersLoading}>
-                      {laddersLoading ? "Loading ladders..." : "Choose a ladder"}
-                    </SelectItem>
-                    {[...ladders]
-                      .sort((a, b) => {
-                        if (a.type === b.type) return (a.name || "").localeCompare(b.name || "");
-                        return a.type === "singles" ? -1 : 1;
-                      })
-                      .map((ladder) => (
-                      <SelectItem key={ladder.id} value={ladder.id}>
-                        {formatLadderName(ladder.name, ladder.type)}
-                      </SelectItem>
-                    ))}
-                    {!laddersLoading && ladders.length === 0 && (
-                      <SelectItem value="no-ladders" disabled>
-                        No ladders available
-                      </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {isDoublesLadder && (
-              <div>
-                <Label>Choose your partner (same club)</Label>
-                <Select
-                  value={partnerId || "none"}
-                  onValueChange={(value) => setPartnerId(value === "none" ? "" : value)}
-                  disabled={clubPlayers.length === 0}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select partner" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Select partner</SelectItem>
-                    {clubPlayers.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                    {clubPlayers.length === 0 && (
-                      <SelectItem value="no-partners" disabled>
-                        No club players available
-                      </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-gray-500 mt-1">
-                  Partner must already be a member of this club.
-                </p>
-              </div>
-            )}
-
-            {selectedLadderId && (
-              <div>
-                <Label>Match frequency per round</Label>
-                <Select
-                  value={matchFrequency.toString()}
-                  onValueChange={(value) => setMatchFrequency(parseInt(value, 10))}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select frequency" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="0">0</SelectItem>
-                    <SelectItem value="1">1</SelectItem>
-                    <SelectItem value="2">2</SelectItem>
-                    <SelectItem value="3">3</SelectItem>
-                    <SelectItem value="4">4</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
 
             {otpSent && (
               <div>
