@@ -458,10 +458,10 @@ export const PendingMatches = ({
     <div className="w-full">
       <Tabs defaultValue="pending" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="pending">
+          <TabsTrigger value="pending" className="text-xs sm:text-sm">
             Pending Matches ({pendingChallenges.length})
           </TabsTrigger>
-          <TabsTrigger value="completed">
+          <TabsTrigger value="completed" className="text-xs sm:text-sm">
             Completed Matches ({completedChallenges.length})
           </TabsTrigger>
         </TabsList>
