@@ -573,7 +573,7 @@ const MyLadder = () => {
                               </div>
                             )}
 
-                            <div className="flex flex-col sm:flex-row sm:justify-end gap-2">
+                            <div className="flex flex-col sm:flex-row justify-start items-start gap-2">
                               {membership && (
                                 <Button
                                   variant="destructive"
