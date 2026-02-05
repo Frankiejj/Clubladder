@@ -118,16 +118,14 @@ export const PlayerCard = ({
 
         {/* Player Info */}
         <div className="flex-1 text-left">
-          <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-2 sm:gap-3 mb-1">
-            <div className="flex items-center gap-2">
-              <Avatar className="h-8 w-8 sm:h-9 sm:w-9">
-                <AvatarImage src={avatarSrc} alt={displayName} />
-                <AvatarFallback className="bg-green-100 text-green-700">
-                  {player.name?.[0]?.toUpperCase() || "U"}
-                </AvatarFallback>
-              </Avatar>
-              <h3 className="text-base sm:text-lg font-bold text-gray-800">{displayName}</h3>
-            </div>
+          <div className="flex items-center gap-2 sm:gap-3 mb-1">
+            <Avatar className="h-8 w-8 sm:h-9 sm:w-9">
+              <AvatarImage src={avatarSrc} alt={displayName} />
+              <AvatarFallback className="bg-green-100 text-green-700">
+                {player.name?.[0]?.toUpperCase() || "U"}
+              </AvatarFallback>
+            </Avatar>
+            <h3 className="text-base sm:text-lg font-bold text-gray-800">{displayName}</h3>
           </div>
 
           <div className="flex flex-wrap justify-center sm:justify-start items-center gap-x-3 gap-y-2 text-[11px] sm:text-xs text-gray-600">

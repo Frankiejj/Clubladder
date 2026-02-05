@@ -418,18 +418,22 @@ const Admin = () => {
 
   const reorderAndSaveRanks = async (membershipId: string, newRank: number) => {
     if (!selectedLadderId) return;
-    const member = ladderRanking.find((r) => r.membershipId === membershipId);
-    if (!member) return;
-    const without = ladderRanking.filter((r) => r.membershipId !== membershipId);
+    const current = ladderMemberships.filter((m) => m.ladder_id === selectedLadderId);
+    const target = current.find((m) => m.id === membershipId);
+    if (!target) return;
+
+    const ordered = [...current].sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0));
+    const without = ordered.filter((m) => m.id !== membershipId);
     const idx = Math.max(0, Math.min(newRank - 1, without.length));
-    without.splice(idx, 0, member);
-    const updates = without.map((r, i) => ({ id: r.membershipId, rank: i + 1 }));
+    without.splice(idx, 0, target);
+    const updates = without.map((m, i) => ({ id: m.id, rank: i + 1 }));
 
     await Promise.all(
       updates.map((u) =>
         (supabase as any).from("ladder_memberships").update({ rank: u.rank }).eq("id", u.id)
       )
     );
+
     setLadderMemberships((prev) =>
       prev.map((m) => {
         const upd = updates.find((u) => u.id === m.id);

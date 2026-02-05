@@ -65,6 +65,7 @@ const MyLadder = () => {
   const [teamAvatarPreviewByLadder, setTeamAvatarPreviewByLadder] = useState<Record<string, string>>({});
   const [clubPlayers, setClubPlayers] = useState<Array<{ id: string; name: string }>>([]);
   const [savingLadderId, setSavingLadderId] = useState<string | null>(null);
+  const [ladderMemberIdsByLadder, setLadderMemberIdsByLadder] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -125,6 +126,7 @@ const MyLadder = () => {
       if (!selectedClubId) {
         setLadders([]);
         setClubPlayers([]);
+        setLadderMemberIdsByLadder({});
         return;
       }
       setLaddersLoading(true);
@@ -165,6 +167,38 @@ const MyLadder = () => {
     loadLadders();
     loadClubPlayers();
   }, [selectedClubId, toast]);
+
+  useEffect(() => {
+    const loadLadderMembers = async () => {
+      if (!ladders.length) {
+        setLadderMemberIdsByLadder({});
+        return;
+      }
+      const ladderIds = ladders.map((l) => l.id);
+      const { data, error } = await (supabase as any)
+        .from("ladder_memberships")
+        .select("ladder_id,player_id,partner_id")
+        .in("ladder_id", ladderIds);
+      if (error) {
+        console.error("Error loading ladder members", error);
+        setLadderMemberIdsByLadder({});
+        return;
+      }
+      const map: Record<string, Set<string>> = {};
+      (data as any[] | null)?.forEach((row) => {
+        if (!map[row.ladder_id]) map[row.ladder_id] = new Set();
+        if (row.player_id) map[row.ladder_id].add(row.player_id);
+        if (row.partner_id) map[row.ladder_id].add(row.partner_id);
+      });
+      const serializable: Record<string, string[]> = {};
+      Object.entries(map).forEach(([ladderId, set]) => {
+        serializable[ladderId] = Array.from(set);
+      });
+      setLadderMemberIdsByLadder(serializable);
+    };
+
+    loadLadderMembers();
+  }, [ladders]);
 
   useEffect(() => {
     if (!player) return;
@@ -447,6 +481,7 @@ const MyLadder = () => {
                       const isPartnerMembership = Boolean(membership?.is_partner);
                       const frequencyValue = frequencyByLadder[ladder.id] ?? 1;
                       const partnerValue = partnerByLadder[ladder.id] || "none";
+                      const takenIds = new Set(ladderMemberIdsByLadder[ladder.id] || []);
                       const requiresPartner = ladder.type === "doubles";
                       const canJoinDoubles =
                         !requiresPartner || (partnerValue !== "none" && partnerValue !== "");
@@ -494,7 +529,11 @@ const MyLadder = () => {
                                   <SelectContent>
                                     <SelectItem value="none">No partner</SelectItem>
                                     {clubPlayers
-                                      .filter((p) => p.id !== player.id)
+                                      .filter((p) => {
+                                        if (p.id === player.id) return false;
+                                        if (partnerValue !== "none" && p.id === partnerValue) return true;
+                                        return !takenIds.has(p.id);
+                                      })
                                       .map((p) => (
                                         <SelectItem key={p.id} value={p.id}>
                                           {p.name}
