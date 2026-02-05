@@ -284,32 +284,15 @@ const MyLadder = () => {
           }
         }
 
-        const { error } = await (supabase as any)
-          .from(membershipTable)
-          .insert({
-            ladder_id: ladder.id,
-            player_id: player.id,
-            match_frequency: frequency,
-            partner_id: partnerId,
-            rank: nextRank,
-            team_avatar_url: ladder.type === "doubles" ? uploadedTeamAvatarUrl : null,
+        const { error: joinError } = await (supabase as any)
+          .rpc("join_ladder", {
+            p_ladder_id: ladder.id,
+            p_player_id: player.id,
+            p_partner_id: partnerId,
+            p_match_frequency: frequency,
+            p_team_avatar_url: ladder.type === "doubles" ? uploadedTeamAvatarUrl : null,
           });
-        if (error) {
-          if (error.code === "23505") {
-            const { error: updateError } = await (supabase as any)
-              .from(membershipTable)
-              .update({
-                match_frequency: frequency,
-                partner_id: partnerId,
-                team_avatar_url: ladder.type === "doubles" ? uploadedTeamAvatarUrl : null,
-              })
-              .eq("ladder_id", ladder.id)
-              .eq("player_id", player.id);
-            if (updateError) throw updateError;
-          } else {
-            throw error;
-          }
-        }
+        if (joinError) throw joinError;
       }
 
       if (ladder.type === "singles") {

@@ -12,6 +12,7 @@ import Registration from "./pages/Registration";
 import Login from "./pages/Login";
 import Profile from "./pages/Profile";
 import MyLadder from "./pages/MyLadder";
+import MyClub from "./pages/MyClub";
 import Auth from "./pages/Auth";
 import AddClub from "./pages/AddClub";
 import Admin from "./pages/Admin";
@@ -37,6 +38,7 @@ const App = () => (
           <Route path="/super-admin" element={<SuperAdmin />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/my-ladder" element={<MyLadder />} />
+          <Route path="/my-club" element={<MyClub />} />
           <Route path="/team/:membershipId" element={<TeamDetails />} />
           <Route path="/registration" element={<Registration />} />
           <Route path="/login" element={<Login />} />

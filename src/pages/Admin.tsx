@@ -30,11 +30,32 @@ interface MatchRow {
   score: string | null;
   player1_score: number | null;
   player2_score: number | null;
+  ladder_id?: string | null;
+  round_label?: string | null;
+}
+
+interface LadderRow {
+  id: string;
+  name: string | null;
+  type: "singles" | "doubles";
+  club_id?: string | null;
+}
+
+interface LadderMembershipRow {
+  id: string;
+  ladder_id: string;
+  player_id: string;
+  partner_id: string | null;
+  rank: number | null;
 }
 
 const Admin = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const formatLadderName = (name?: string | null, fallback?: string) => {
+    if (!name) return fallback || "Ladder";
+    return name.replace(/\s*\((Singles|Doubles)\)\s*/gi, " ").trim();
+  };
 
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
@@ -53,6 +74,11 @@ const Admin = () => {
   const [saving, setSaving] = useState(false);
   const [showPlayerModal, setShowPlayerModal] = useState(false);
   const [showMatchModal, setShowMatchModal] = useState(false);
+  const [ladders, setLadders] = useState<LadderRow[]>([]);
+  const [selectedLadderId, setSelectedLadderId] = useState<string>("");
+  const [ladderMemberships, setLadderMemberships] = useState<LadderMembershipRow[]>([]);
+  const [ladderLoading, setLadderLoading] = useState(false);
+  const [selectedRoundLabel, setSelectedRoundLabel] = useState<string>("");
 
   useEffect(() => {
     const bootstrap = async () => {
@@ -121,7 +147,7 @@ const Admin = () => {
       const { data, error } = await (supabase as any)
         .from("matches")
         .select(
-          "id,challenger_id,challenged_id,status,scheduled_date,winner_id,score,player1_score,player2_score,notes,created_at,updated_at"
+          "id,ladder_id,round_label,challenger_id,challenged_id,status,scheduled_date,winner_id,score,player1_score,player2_score,notes,created_at,updated_at"
         )
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -138,6 +164,76 @@ const Admin = () => {
 
     bootstrap();
   }, [navigate, toast]);
+
+  useEffect(() => {
+    const loadLadders = async () => {
+      if (!authorized) return;
+      setLadderLoading(true);
+      try {
+        let clubIds: string[] = [];
+        if (isSuperAdmin) {
+          clubIds = selectedClubId ? [selectedClubId] : clubs.map((c) => c.id);
+        } else {
+          clubIds = adminClubs;
+        }
+
+        if (!clubIds.length) {
+          setLadders([]);
+          setSelectedLadderId("");
+          return;
+        }
+
+        const { data, error } = await (supabase as any)
+          .from("ladders")
+          .select("id,name,type,club_id")
+          .in("club_id", clubIds);
+        if (error) throw error;
+        const safe = (data as LadderRow[]) || [];
+        setLadders(safe);
+        if (!selectedLadderId && safe.length) {
+          const singles = safe.find((l) => l.type === "singles");
+          setSelectedLadderId((singles || safe[0]).id);
+        }
+      } catch (error) {
+        console.error("Ladders load error", error);
+        setLadders([]);
+        setSelectedLadderId("");
+      } finally {
+        setLadderLoading(false);
+      }
+    };
+
+    loadLadders();
+  }, [authorized, adminClubs, clubs, isSuperAdmin, selectedClubId, selectedLadderId]);
+
+  useEffect(() => {
+    const loadMemberships = async () => {
+      if (!selectedLadderId) {
+        setLadderMemberships([]);
+        return;
+      }
+      const { data, error } = await (supabase as any)
+        .from("ladder_memberships")
+        .select("id,ladder_id,player_id,partner_id,rank")
+        .eq("ladder_id", selectedLadderId);
+      if (error) {
+        console.error("Ladder memberships load error", error);
+        setLadderMemberships([]);
+        return;
+      }
+      setLadderMemberships((data as LadderMembershipRow[]) || []);
+      if (data && data.length) {
+        const sorted = [...data].sort((a: any, b: any) => (a.rank ?? 0) - (b.rank ?? 0));
+        setSelectedPlayerId(sorted[0].id);
+        setSelectedPlayerRank(Number(sorted[0].rank ?? 1));
+      } else {
+        setSelectedPlayerId("");
+        setSelectedPlayerRank(1);
+      }
+    };
+
+    loadMemberships();
+  }, [selectedLadderId]);
 
   const loadClubs = async () => {
     const { data, error } = await (supabase as any).from("clubs").select("id,name,city").order("name");
@@ -169,8 +265,49 @@ const Admin = () => {
 
   const visibleMatches = useMemo(() => {
     const ids = new Set(visiblePlayers.map((p) => p.id));
-    return matches.filter((m) => ids.has(m.challenger_id) || ids.has(m.challenged_id));
-  }, [matches, visiblePlayers, selectedClubId]);
+    const inClub = matches.filter((m) => ids.has(m.challenger_id) || ids.has(m.challenged_id));
+    if (!selectedLadderId) return inClub;
+    return inClub.filter((m) => (m as any).ladder_id === selectedLadderId);
+  }, [matches, visiblePlayers, selectedClubId, selectedLadderId]);
+
+  const roundOptions = useMemo(() => {
+    const labels = new Set<string>();
+    visibleMatches.forEach((m: any) => {
+      if (m.round_label) labels.add(m.round_label);
+    });
+    const parseLabel = (label: string) => {
+      const match = label.match(/^(\d{4})-R(\d+)$/);
+      if (!match) return { year: 0, round: 0 };
+      return { year: parseInt(match[1], 10), round: parseInt(match[2], 10) };
+    };
+    return Array.from(labels).sort((a, b) => {
+      const pa = parseLabel(a);
+      const pb = parseLabel(b);
+      if (pa.year !== pb.year) return pb.year - pa.year;
+      return pb.round - pa.round;
+    });
+  }, [visibleMatches]);
+
+  const filteredMatches = useMemo(() => {
+    const parseLabel = (label?: string | null) => {
+      if (!label) return { year: 0, round: 0 };
+      const match = label.match(/^(\d{4})-R(\d+)$/);
+      if (!match) return { year: 0, round: 0 };
+      return { year: parseInt(match[1], 10), round: parseInt(match[2], 10) };
+    };
+    const base = selectedRoundLabel
+      ? visibleMatches.filter((m: any) => m.round_label === selectedRoundLabel)
+      : visibleMatches;
+    return [...base].sort((a: any, b: any) => {
+      const ra = parseLabel(a.round_label);
+      const rb = parseLabel(b.round_label);
+      if (ra.year !== rb.year) return rb.year - ra.year;
+      if (ra.round !== rb.round) return rb.round - ra.round;
+      const aTime = new Date(a.updated_at || a.created_at || 0).getTime();
+      const bTime = new Date(b.updated_at || b.created_at || 0).getTime();
+      return bTime - aTime;
+    });
+  }, [visibleMatches, selectedRoundLabel]);
 
   const playerLookup = useMemo(() => {
     return visiblePlayers.reduce<Record<string, PlayerRow>>((acc, p) => {
@@ -178,6 +315,58 @@ const Admin = () => {
       return acc;
     }, {});
   }, [visiblePlayers]);
+
+  const selectedLadder = useMemo(
+    () => ladders.find((l) => l.id === selectedLadderId) || null,
+    [ladders, selectedLadderId]
+  );
+
+  const ladderRanking = useMemo(() => {
+    if (!selectedLadderId) return [];
+    const rows = ladderMemberships.filter((m) => m.ladder_id === selectedLadderId);
+    return rows
+      .map((row) => {
+        const player = playerLookup[row.player_id];
+        const partner = row.partner_id ? playerLookup[row.partner_id] : null;
+        const displayName =
+          selectedLadder?.type === "doubles" && partner
+            ? `${player?.name || "Player"} & ${partner?.name || "Player"}`
+            : player?.name || "Player";
+        const wins =
+          selectedLadder?.type === "doubles"
+            ? (player?.wins || 0) + (partner?.wins || 0)
+            : player?.wins || 0;
+        const losses =
+          selectedLadder?.type === "doubles"
+            ? (player?.losses || 0) + (partner?.losses || 0)
+            : player?.losses || 0;
+        return {
+          membershipId: row.id,
+          rank: row.rank ?? 0,
+          displayName,
+          email: player?.email || "",
+          wins,
+          losses,
+        };
+      })
+      .sort((a, b) => a.rank - b.rank);
+  }, [ladderMemberships, playerLookup, selectedLadderId, selectedLadder?.type]);
+
+  const teamNameByPlayerId = useMemo(() => {
+    const map: Record<string, string> = {};
+    ladderMemberships.forEach((row) => {
+      const player = playerLookup[row.player_id];
+      const partner = row.partner_id ? playerLookup[row.partner_id] : null;
+      if (row.partner_id && selectedLadder?.type === "doubles") {
+        const name = `${player?.name || "Player"} & ${partner?.name || "Player"}`;
+        map[row.player_id] = name;
+        map[row.partner_id] = name;
+      } else if (player) {
+        map[row.player_id] = player.name;
+      }
+    });
+    return map;
+  }, [ladderMemberships, playerLookup, selectedLadder?.type]);
 
   const selectedClubName = useMemo(() => {
     if (isSuperAdmin) {
@@ -211,9 +400,9 @@ const Admin = () => {
   }, [isSuperAdmin, selectedClubId, clubs, adminClubs]);
 
   const selectPlayer = (id: string) => {
-    const p = playerLookup[id];
+    const member = ladderRanking.find((r) => r.membershipId === id);
     setSelectedPlayerId(id);
-    setSelectedPlayerRank(p?.rank ?? 1);
+    setSelectedPlayerRank(member?.rank ?? 1);
     setShowPlayerModal(true);
   };
 
@@ -227,27 +416,24 @@ const Admin = () => {
     setShowMatchModal(true);
   };
 
-  const reorderAndSaveRanks = async (playerId: string, newRank: number) => {
-    const player = playerLookup[playerId];
-    if (!player) return;
-    const clubId = Array.isArray(player.clubs) && player.clubs.length ? player.clubs[0] : "none";
-    const group = visiblePlayers.filter((p) => {
-      const clubs = Array.isArray(p.clubs) ? p.clubs : [];
-      return clubs.includes(clubId);
-    });
-
-    const without = group.filter((p) => p.id !== playerId);
+  const reorderAndSaveRanks = async (membershipId: string, newRank: number) => {
+    if (!selectedLadderId) return;
+    const member = ladderRanking.find((r) => r.membershipId === membershipId);
+    if (!member) return;
+    const without = ladderRanking.filter((r) => r.membershipId !== membershipId);
     const idx = Math.max(0, Math.min(newRank - 1, without.length));
-    without.splice(idx, 0, player);
-    const updates = without.map((p, i) => ({ id: p.id, rank: i + 1 }));
+    without.splice(idx, 0, member);
+    const updates = without.map((r, i) => ({ id: r.membershipId, rank: i + 1 }));
 
     await Promise.all(
-      updates.map((u) => (supabase as any).from("players").update({ rank: u.rank }).eq("id", u.id))
+      updates.map((u) =>
+        (supabase as any).from("ladder_memberships").update({ rank: u.rank }).eq("id", u.id)
+      )
     );
-    setPlayers((prev) =>
-      prev.map((p) => {
-        const upd = updates.find((u) => u.id === p.id);
-        return upd ? { ...p, rank: upd.rank } : p;
+    setLadderMemberships((prev) =>
+      prev.map((m) => {
+        const upd = updates.find((u) => u.id === m.id);
+        return upd ? { ...m, rank: upd.rank } : m;
       })
     );
     toast({ title: "Rank updated" });
@@ -460,7 +646,30 @@ const Admin = () => {
 
         {view === "rankings" ? (
           <>
-            <Card>
+            <div className="mb-4">
+              <Label className="text-xs">Select ladder</Label>
+              <select
+                className="mt-1 w-full border rounded-md px-3 py-2"
+                value={selectedLadderId}
+                onChange={(e) => setSelectedLadderId(e.target.value)}
+                disabled={ladderLoading || ladders.length === 0}
+              >
+                <option value="" disabled>
+                  {ladderLoading ? "Loading ladders..." : "Select ladder"}
+                </option>
+                {[...ladders]
+                  .sort((a, b) => {
+                    if (a.type === b.type) return (a.name || "").localeCompare(b.name || "");
+                    return a.type === "singles" ? -1 : 1;
+                  })
+                  .map((ladder) => (
+                    <option key={ladder.id} value={ladder.id}>
+                      {formatLadderName(ladder.name, ladder.type)} ({ladder.type})
+                    </option>
+                  ))}
+              </select>
+            </div>
+            <Card className="lg:col-span-2">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Users className="h-5 w-5" />
@@ -470,22 +679,20 @@ const Admin = () => {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="max-h-[60vh] overflow-y-auto space-y-2">
-                  {visiblePlayers.length === 0 && <p className="text-sm text-gray-600">No players found.</p>}
-                  {visiblePlayers
-                    .sort((a, b) => a.rank - b.rank)
-                    .map((p) => {
-                      const isSelected = selectedPlayerId === p.id;
+                  {ladderRanking.length === 0 && <p className="text-sm text-gray-600">No ladder members found.</p>}
+                  {ladderRanking.map((p) => {
+                      const isSelected = selectedPlayerId === p.membershipId;
                       return (
                         <div
-                          key={p.id}
-                          onClick={() => selectPlayer(p.id)}
+                          key={p.membershipId}
+                          onClick={() => selectPlayer(p.membershipId)}
                           className={`border rounded-md px-3 py-2 bg-white flex items-center justify-between cursor-pointer transition-all ${
                             isSelected ? "ring-2 ring-green-500 bg-green-50 shadow-green-200 shadow" : ""
                           }`}
                         >
                           <div>
                             <div className="font-semibold">
-                              #{p.rank} {p.name}
+                              #{p.rank} {p.displayName}
                             </div>
                             <div className="text-xs text-gray-500">{p.email}</div>
                             <div className="text-xs text-gray-500">W/L: {p.wins} / {p.losses}</div>
@@ -500,7 +707,7 @@ const Admin = () => {
                               size="icon"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                selectPlayer(p.id);
+                                selectPlayer(p.membershipId);
                               }}
                               className={isSelected ? "bg-green-600 text-white hover:bg-green-700" : ""}
                             >
@@ -522,12 +729,12 @@ const Admin = () => {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {(() => {
-                      const p = playerLookup[selectedPlayerId];
+                      const p = ladderRanking.find((r) => r.membershipId === selectedPlayerId);
                       if (!p) return <p className="text-sm text-gray-600">Player not found.</p>;
                       return (
                         <>
                           <div>
-                            <div className="font-semibold">{p.name}</div>
+                            <div className="font-semibold">{p.displayName}</div>
                             <div className="text-xs text-gray-500">{p.email}</div>
                             <div className="text-xs text-gray-500">Current rank: #{p.rank}</div>
                             <div className="text-xs text-gray-500">W/L: {p.wins} / {p.losses}</div>
@@ -573,7 +780,51 @@ const Admin = () => {
             )}
           </>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
+            <div className="lg:col-span-2 mb-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Select ladder</Label>
+                <select
+                  className="mt-1 w-full border rounded-md px-3 py-2"
+                  value={selectedLadderId}
+                  onChange={(e) => {
+                    setSelectedLadderId(e.target.value);
+                    setSelectedRoundLabel("");
+                  }}
+                  disabled={ladderLoading || ladders.length === 0}
+                >
+                  <option value="" disabled>
+                    {ladderLoading ? "Loading ladders..." : "Select ladder"}
+                  </option>
+                  {[...ladders]
+                    .sort((a, b) => {
+                      if (a.type === b.type) return (a.name || "").localeCompare(b.name || "");
+                      return a.type === "singles" ? -1 : 1;
+                    })
+                    .map((ladder) => (
+                      <option key={ladder.id} value={ladder.id}>
+                        {formatLadderName(ladder.name, ladder.type)} ({ladder.type})
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <div>
+                <Label className="text-xs">Select round</Label>
+                <select
+                  className="mt-1 w-full border rounded-md px-3 py-2"
+                  value={selectedRoundLabel}
+                  onChange={(e) => setSelectedRoundLabel(e.target.value)}
+                  disabled={!roundOptions.length}
+                >
+                  <option value="">All rounds</option>
+                  {roundOptions.map((label) => (
+                    <option key={label} value={label}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -583,10 +834,14 @@ const Admin = () => {
                 <p className="text-sm text-gray-600">{clubLabel}</p>
               </CardHeader>
               <CardContent className="space-y-2 max-h-[70vh] overflow-y-auto">
-                {visibleMatches.length === 0 && <p className="text-sm text-gray-600">No matches found.</p>}
-                {visibleMatches.map((m) => {
+                {filteredMatches.length === 0 && <p className="text-sm text-gray-600">No matches found.</p>}
+                {filteredMatches.map((m) => {
                   const challenger = playerLookup[m.challenger_id];
                   const challenged = playerLookup[m.challenged_id];
+                  const challengerName =
+                    teamNameByPlayerId[m.challenger_id] || challenger?.name || "Player";
+                  const challengedName =
+                    teamNameByPlayerId[m.challenged_id] || challenged?.name || "Player";
                   return (
                     <div
                       key={m.id}
@@ -595,7 +850,7 @@ const Admin = () => {
                     >
                       <div>
                         <div className="font-semibold">
-                          {challenger?.name || "Player"} vs {challenged?.name || "Player"}
+                          {challengerName} vs {challengedName}
                         </div>
                         <div className="text-xs text-gray-500">Status: {m.status}</div>
                         {m.score && <div className="text-xs text-gray-500">Score: {m.score}</div>}

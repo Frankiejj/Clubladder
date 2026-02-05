@@ -177,7 +177,8 @@ const MyMatches = () => {
         const safe = (ladderRows as any[]) || [];
         setLadders(safe);
         if (!selectedLadderId && safe.length) {
-          setSelectedLadderId(safe[0].id);
+          const singles = safe.find((l) => l.type === "singles");
+          setSelectedLadderId((singles || safe[0]).id);
         }
       }
       setLaddersLoading(false);

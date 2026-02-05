@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { LogIn, ArrowLeft, Mail, KeyRound } from "lucide-react";
+import { LogIn, Mail, KeyRound } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -180,18 +180,9 @@ const Login = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100">
       <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center gap-4 mb-8">
-          <Link to="/">
-            <Button className="border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 px-3 py-1 text-sm">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-          </Link>
-
-          <div className="flex items-center gap-3">
-            <LogIn className="h-8 w-8 text-green-600" />
-            <h1 className="text-4xl font-bold text-green-800">Player Login</h1>
-          </div>
+        <div className="flex items-center gap-3 mb-8">
+          <LogIn className="h-8 w-8 text-green-600" />
+          <h1 className="text-4xl font-bold text-green-800">Player Login</h1>
         </div>
 
         <Card className="max-w-md mx-auto">
