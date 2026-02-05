@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui/card";
+import { ArrowUp, ArrowDown } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Trophy, Target, ArrowUp, ArrowDown } from "lucide-react";
 import { Player } from "@/types/Player";
 import { Challenge } from "@/types/Challenge";
 
@@ -93,15 +93,10 @@ export const PlayerCard = ({
   const predictedRank = calculatePredictedRank();
 
   const getRankColor = (rank: number) => {
-    if (rank === 1) return "bg-yellow-500";
-    if (rank === 2) return "bg-gray-500";
-    if (rank === 3) return "bg-amber-600";
-    return "bg-green-600";
-  };
-
-  const getRankIcon = (rank: number) => {
-    if (rank <= 3) return <Trophy className="h-6 w-6 text-white" />;
-    return <Target className="h-6 w-6 text-white" />;
+    if (rank === 1) return "text-yellow-600";
+    if (rank === 2) return "text-gray-500";
+    if (rank === 3) return "text-amber-600";
+    return "text-black";
   };
 
   return (
@@ -109,15 +104,10 @@ export const PlayerCard = ({
       className="overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer"
       onClick={() => onPlayerClick?.(player)}
     >
-      <div className="flex flex-col sm:flex-row items-center p-3 sm:p-4">
+      <div className="flex flex-row items-center p-2 sm:p-3">
         {/* Rank Badge */}
-        <div className="relative mb-4 sm:mb-0 sm:mr-6 flex-shrink-0">
-          <div className={`${getRankColor(player.rank)} rounded-full w-12 h-12 flex items-center justify-center shadow-md`}>
-            <div className="text-center">
-              {getRankIcon(player.rank)}
-              <div className="text-white font-bold text-sm">#{player.rank}</div>
-            </div>
-          </div>
+        <div className="relative mr-3 sm:mr-4 flex-shrink-0">
+          <div className={`font-bold text-base ${getRankColor(player.rank)}`}>#{player.rank}</div>
           {/* Optional quick next-rank indicator for current user */}
           {predictedRank && predictedRank !== player.rank && player.id === currentUserId && (
             <div className="absolute -right-2 -top-2 bg-green-500 text-white rounded-full w-7 h-7 flex items-center justify-center text-[10px] font-bold shadow-md animate-bounce">
@@ -127,10 +117,10 @@ export const PlayerCard = ({
         </div>
 
         {/* Player Info */}
-        <div className="flex-1 text-center sm:text-left">
+        <div className="flex-1 text-left">
           <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-2 sm:gap-3 mb-1">
             <div className="flex items-center gap-2">
-              <Avatar className="h-9 w-9">
+              <Avatar className="h-8 w-8 sm:h-9 sm:w-9">
                 <AvatarImage src={avatarSrc} alt={displayName} />
                 <AvatarFallback className="bg-green-100 text-green-700">
                   {player.name?.[0]?.toUpperCase() || "U"}

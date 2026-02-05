@@ -107,8 +107,8 @@ export const ProfileDropdown = () => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-3 focus:outline-none focus:ring-2 focus:ring-green-500 rounded-full bg-gradient-to-r from-green-600 to-emerald-500 text-white px-3 py-2 pr-4 text-sm font-semibold shadow-lg hover:shadow-xl transition">
-          <Avatar className="h-9 w-9 bg-green-100 text-green-700 border-2 border-white/40 ring-0 shadow">
+        <button className="flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-green-500 rounded-full bg-gradient-to-r from-green-600 to-emerald-500 text-white p-1.5 sm:p-2 shadow-lg hover:shadow-xl transition">
+          <Avatar className="h-7 w-7 sm:h-9 sm:w-9 bg-green-100 text-green-700 border-2 border-white/40 ring-0 shadow">
             <AvatarImage
               key={profile.avatar_url || profile.email}
               src={profile.avatar_url || undefined}
@@ -119,12 +119,6 @@ export const ProfileDropdown = () => {
               {getInitials()}
             </AvatarFallback>
           </Avatar>
-          <span className="flex flex-col items-start leading-tight">
-            <span className="font-semibold text-sm">
-              {profile.name || profile.email || getInitials()}
-            </span>
-            <span className="text-xs text-white/80">{profile.email}</span>
-          </span>
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">

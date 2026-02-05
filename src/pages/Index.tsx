@@ -583,7 +583,7 @@ export default function Index() {
           />
         )}
 
-        <Card className="max-w-4xl mx-auto mt-6">
+        <Card className="max-w-4xl mx-auto mt-6 text-center">
           <CardHeader>
             <CardTitle className="flex flex-col items-center gap-2 text-center">
               <div className="flex items-center gap-2 text-lg sm:text-xl font-semibold">
@@ -607,7 +607,7 @@ export default function Index() {
               </div>
             </CardTitle>
 
-            <div className="flex gap-2 mt-4">
+            <div className="flex justify-center gap-2 mt-4">
               <Button
                 onClick={() => setActiveView("rankings")}
                 variant={activeView === "rankings" ? "default" : "outline"}
@@ -627,7 +627,7 @@ export default function Index() {
 
           <CardContent>
             {activeView === "rankings" ? (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div />
                 {ladderPlayersLoading ? (
                   <p className="text-gray-600">Loading ladder rankings...</p>
@@ -663,7 +663,7 @@ export default function Index() {
               </div>
             ) : (
               <>
-                <div className="flex justify-end mb-4">
+                <div className="flex justify-center mb-4">
                   <Button
                     variant={showMyMatchesOnly ? "default" : "outline"}
                     onClick={() => setShowMyMatchesOnly((prev) => !prev)}
