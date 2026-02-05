@@ -428,6 +428,15 @@ const Admin = () => {
     without.splice(idx, 0, target);
     const updates = without.map((m, i) => ({ id: m.id, rank: i + 1 }));
 
+    // Two-step update to avoid unique (ladder_id, rank) collisions
+    await Promise.all(
+      updates.map((u) =>
+        (supabase as any)
+          .from("ladder_memberships")
+          .update({ rank: 1000000 + u.rank })
+          .eq("id", u.id)
+      )
+    );
     await Promise.all(
       updates.map((u) =>
         (supabase as any).from("ladder_memberships").update({ rank: u.rank }).eq("id", u.id)
