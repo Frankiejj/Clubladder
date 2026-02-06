@@ -197,7 +197,7 @@ export const PendingMatches = ({
           isCompleted ? 'bg-blue-50 border-blue-200' : 'bg-green-50 border-green-200'
         } rounded-lg border space-y-4`}
       >
-        <div className="grid grid-cols-3 items-center gap-4">
+        <div className="grid grid-cols-3 items-start gap-4">
           <div className="text-center">
             <div className="font-semibold text-green-800 flex items-center justify-center gap-2">
                 <Avatar className="h-8 w-8">
@@ -220,10 +220,10 @@ export const PendingMatches = ({
                   </button>
                 )}
             </div>
-            <div className="text-sm text-gray-600">Rank #{challengerRank}</div>
+            <div className="text-xs sm:text-sm text-gray-600">Rank #{challengerRank}</div>
           </div>
 
-          <div className="flex flex-col items-center justify-center text-center gap-2">
+          <div className="flex flex-col items-center justify-start text-center gap-2">
             <Swords className="h-5 w-5 text-green-600 mb-1" />
             <span className="text-xs font-medium text-green-700 leading-none">VS</span>
             {isCompleted && challenge.score && (
@@ -313,7 +313,7 @@ export const PendingMatches = ({
                   </button>
                 )}
             </div>
-            <div className="text-sm text-gray-600">Rank #{challengedRank}</div>
+            <div className="text-xs sm:text-sm text-gray-600">Rank #{challengedRank}</div>
           </div>
           
           <div className="flex flex-col items-end gap-2 text-right">
