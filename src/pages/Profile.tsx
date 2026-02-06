@@ -61,8 +61,8 @@ const Profile = () => {
         const rawPhone = player.phone || "";
         const digits = rawPhone.replace(/\D/g, "");
         const derivedCountryCode =
-          rawPhone.trim().startsWith("+") && digits.length > 1
-            ? digits.slice(0, Math.min(3, digits.length - 1))
+          rawPhone.trim().startsWith("+") && digits.length >= 2
+            ? digits.slice(0, 2)
             : "1";
         const derivedPhone =
           rawPhone.trim().startsWith("+") && digits.length > derivedCountryCode.length
@@ -408,9 +408,10 @@ const Profile = () => {
                         onChange={(e) =>
                           setFormData({
                             ...formData,
-                            countryCode: e.target.value.replace(/[^\d]/g, ""),
+                            countryCode: e.target.value.replace(/[^\d]/g, "").slice(0, 2),
                           })
                         }
+                        maxLength={2}
                         className="w-12 border-0 px-1 py-1 focus-visible:ring-0 focus-visible:ring-offset-0"
                         aria-label="Country code"
                       />

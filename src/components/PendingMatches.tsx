@@ -4,12 +4,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Clock, Swords, Trophy, CheckCircle, Calendar as CalendarIcon, MessageCircle } from "lucide-react";
+import { Clock, Swords, Trophy, CheckCircle, Calendar as CalendarIcon, MessageCircle, X } from "lucide-react";
 import { Challenge } from "@/types/Challenge";
 import { Player } from "@/types/Player";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Calendar } from "@/components/ui/calendar";
 
 interface PendingMatchesProps {
   challenges: Challenge[];
@@ -38,7 +39,9 @@ export const PendingMatches = ({
 }: PendingMatchesProps) => {
   const { toast } = useToast();
   const [scores, setScores] = useState<{ [key: string]: { player1: string, player2: string } }>({});
-  const [scheduleValues, setScheduleValues] = useState<{ [key: string]: string }>({});
+  const [scheduleValues, setScheduleValues] = useState<{
+    [key: string]: { date?: Date; time?: string };
+  }>({});
   const [openScheduler, setOpenScheduler] = useState<{ [key: string]: boolean }>({});
   const [editingScores, setEditingScores] = useState<{ [key: string]: boolean }>({});
 
@@ -194,22 +197,22 @@ export const PendingMatches = ({
       <div
         key={challenge.id}
         className={`p-4 ${
-          isCompleted ? 'bg-blue-50 border-blue-200' : 'bg-green-50 border-green-200'
-        } rounded-lg border space-y-4`}
+          isCompleted ? "bg-blue-50 border-blue-200" : "bg-green-50 border-green-200"
+        } rounded-lg border space-y-4 overflow-hidden`}
       >
         <div className="grid grid-cols-3 items-start gap-4">
           <div className="text-center">
-            <div className="font-semibold text-green-800 flex items-center justify-center gap-2">
+            <div className="font-semibold text-green-800 flex flex-wrap items-center justify-center gap-2 min-w-0">
                 <Avatar className="h-8 w-8">
                   <AvatarImage src={challenger.avatarUrl || (challenger as any).avatar_url || undefined} alt={getDisplayName(challenger)} />
                   <AvatarFallback className="bg-green-100 text-green-700">
                     {challenger.name?.[0]?.toUpperCase() || "U"}
                   </AvatarFallback>
                 </Avatar>
-                <span>{getDisplayName(challenger)}</span>
+                <span className="break-words">{getDisplayName(challenger)}</span>
                 {challengerPhone && (
                   <button
-                    className="text-green-700 hover:text-green-800"
+                    className="text-green-700 hover:text-green-800 shrink-0"
                     onClick={() => {
                       const msg = `Hi ${challenger.name}, let's schedule our ladder match: ${getDisplayName(challenger)} vs ${getDisplayName(challenged)}.`;
                       window.open(`https://wa.me/${challengerPhone}?text=${encodeURIComponent(msg)}`, "_blank");
@@ -292,17 +295,17 @@ export const PendingMatches = ({
           </div>
 
           <div className="text-center">
-            <div className="font-semibold text-green-800 flex items-center justify-center gap-2">
+            <div className="font-semibold text-green-800 flex flex-wrap items-center justify-center gap-2 min-w-0">
                 <Avatar className="h-8 w-8">
                   <AvatarImage src={challenged.avatarUrl || (challenged as any).avatar_url || undefined} alt={getDisplayName(challenged)} />
                   <AvatarFallback className="bg-green-100 text-green-700">
                     {challenged.name?.[0]?.toUpperCase() || "U"}
                   </AvatarFallback>
                 </Avatar>
-                <span>{getDisplayName(challenged)}</span>
+                <span className="break-words">{getDisplayName(challenged)}</span>
                 {challengedPhone && (
                   <button
-                    className="text-green-700 hover:text-green-800"
+                    className="text-green-700 hover:text-green-800 shrink-0"
                     onClick={() => {
                       const msg = `Hi ${challenged.name}, let's schedule our ladder match: ${getDisplayName(challenger)} vs ${getDisplayName(challenged)}.`;
                       window.open(`https://wa.me/${challengedPhone}?text=${encodeURIComponent(msg)}`, "_blank");
@@ -322,10 +325,19 @@ export const PendingMatches = ({
         </div>
 
         {!isCompleted && onScheduleMatch && isMatchParticipant(challenge) && (
-          <div className="border-t pt-4 bg-white p-4 rounded-lg flex flex-col gap-3">
+          <div className="border-t pt-4 bg-white p-4 rounded-lg flex flex-col gap-3 max-w-full">
             <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-700">
-              <CalendarIcon className="h-4 w-4" />
-              <span>{challenge.status === "scheduled" ? "Reschedule this match" : "Schedule this match"}</span>
+              <button
+                type="button"
+                className="flex items-center gap-2 hover:text-green-700"
+                onClick={() => setOpenScheduler((prev) => ({ ...prev, [challenge.id]: true }))}
+                aria-label="Open calendar"
+              >
+                <CalendarIcon className="h-4 w-4" />
+                <span>
+                  {challenge.status === "scheduled" ? "Reschedule this match" : "Schedule this match"}
+                </span>
+              </button>
             </div>
             {!openScheduler[challenge.id] ? (
               <Button
@@ -336,42 +348,83 @@ export const PendingMatches = ({
                 {challenge.status === "scheduled" ? "Reschedule" : "Schedule match"}
               </Button>
             ) : (
-              <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-                <Input
-                  type="datetime-local"
-                  value={scheduleValues[challenge.id] || ""}
-                  onChange={(e) =>
-                    setScheduleValues((prev) => ({
-                      ...prev,
-                      [challenge.id]: e.target.value,
-                    }))
-                  }
-                  className="w-full sm:w-64 text-xs sm:text-sm"
-                />
-                <Button
-                  variant="outline"
-                  disabled={!scheduleValues[challenge.id]}
-                  onClick={() => {
-                    const dt = scheduleValues[challenge.id];
-                    if (!dt) return;
-                    const rounded = new Date(dt);
-                    rounded.setSeconds(0, 0); // round to minute
-                    // Keep local time (avoid UTC shift) by removing timezone offset
-                    const adjusted = new Date(
-                      rounded.getTime() - rounded.getTimezoneOffset() * 60000
-                    );
-                    const localIsoMinute = adjusted.toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM
-                    onScheduleMatch(challenge.id, localIsoMinute);
-                  }}
-                  className="text-xs sm:text-sm"
-                >
-                  Set date
-                </Button>
-                {challenge.scheduledDate && (
-                  <span className="text-xs sm:text-sm text-gray-600">
-                    Current: {formatLocalDateTime(challenge.scheduledDate)}
-                  </span>
-                )}
+              <div className="w-full max-w-full">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs sm:text-sm font-medium text-gray-700">Pick date & time</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() =>
+                      setOpenScheduler((prev) => ({
+                        ...prev,
+                        [challenge.id]: false,
+                      }))
+                    }
+                    aria-label="Close calendar"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-3 items-start max-w-full">
+                  <Calendar
+                    mode="single"
+                    selected={scheduleValues[challenge.id]?.date}
+                    onSelect={(date) =>
+                      setScheduleValues((prev) => ({
+                        ...prev,
+                        [challenge.id]: {
+                          ...prev[challenge.id],
+                          date: date ?? prev[challenge.id]?.date,
+                        },
+                      }))
+                    }
+                    className="rounded-md border w-full max-w-full"
+                  />
+                  <div className="flex flex-col gap-2 w-full sm:w-auto">
+                    <Input
+                      type="time"
+                      value={scheduleValues[challenge.id]?.time || ""}
+                      onChange={(e) =>
+                        setScheduleValues((prev) => ({
+                          ...prev,
+                          [challenge.id]: {
+                            ...prev[challenge.id],
+                            time: e.target.value,
+                          },
+                        }))
+                      }
+                      className="w-full sm:w-40 text-xs sm:text-sm"
+                    />
+                    <Button
+                      variant="outline"
+                      disabled={!scheduleValues[challenge.id]?.date || !scheduleValues[challenge.id]?.time}
+                      onClick={() => {
+                        const date = scheduleValues[challenge.id]?.date;
+                        const time = scheduleValues[challenge.id]?.time;
+                        if (!date || !time) return;
+                        const [hours, minutes] = time.split(":").map(Number);
+                        const composed = new Date(date);
+                        composed.setHours(hours || 0, minutes || 0, 0, 0);
+                        // Keep local time (avoid UTC shift) by removing timezone offset
+                        const adjusted = new Date(
+                          composed.getTime() - composed.getTimezoneOffset() * 60000
+                        );
+                        const localIsoMinute = adjusted.toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM
+                        onScheduleMatch(challenge.id, localIsoMinute);
+                      }}
+                      className="text-xs sm:text-sm"
+                    >
+                      Set date
+                    </Button>
+                    {challenge.scheduledDate && (
+                      <span className="text-xs sm:text-sm text-gray-600">
+                        Current: {formatLocalDateTime(challenge.scheduledDate)}
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </div>

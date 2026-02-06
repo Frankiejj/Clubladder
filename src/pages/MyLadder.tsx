@@ -467,7 +467,7 @@ const MyLadder = () => {
                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                               <div>
                                 <div className="text-lg font-semibold text-green-800">
-                                  {formatLadderName(ladder.name, "Club Ladder")}
+                                  {formatLadderName(ladder.name, "Ladder")}
                                 </div>
                                 <div className="text-sm text-gray-500 capitalize">{ladder.type}</div>
                               </div>
