@@ -91,7 +91,6 @@ export const MyMatchesModal = ({
                       <div className="flex items-center gap-4">
                         <div className="text-center">
                           <div className="font-semibold">{currentUser.name}</div>
-                          <div className="text-sm text-gray-600">Rank #{currentUser.rank}</div>
                         </div>
                         
                         <div className="flex flex-col items-center px-4">
@@ -100,7 +99,6 @@ export const MyMatchesModal = ({
                         
                         <div className="text-center">
                           <div className="font-semibold">{opponent.name}</div>
-                          <div className="text-sm text-gray-600">Rank #{opponent.rank}</div>
                         </div>
                       </div>
                       

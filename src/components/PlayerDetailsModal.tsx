@@ -31,10 +31,6 @@ export const PlayerDetailsModal = ({
 }: PlayerDetailsModalProps) => {
   if (!player) return null;
 
-  const winRate = player.wins + player.losses > 0 
-    ? Math.round((player.wins / (player.wins + player.losses)) * 100) 
-    : 0;
-
   type LadderMembershipRow = {
     id: string;
     player_id: string;
@@ -297,9 +293,6 @@ export const PlayerDetailsModal = ({
     return club.city ? `${club.name} (${club.city})` : club.name;
   });
 
-  const matchesPerMonth =
-    typeof player.matchFrequency === "number" ? player.matchFrequency : 0;
-
   const positionHistoryLabel = useMemo(() => {
     if (!selectedLadderId) return "Position History";
     return "Position History (Current Ladder)";
@@ -330,7 +323,7 @@ export const PlayerDetailsModal = ({
         
         <div className="space-y-6 py-4">
           {/* Player Stats Overview */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
               <CardContent className="p-4 text-center">
                 <div className={`text-3xl font-bold ${getRankColor(ladderRank ?? player.rank)}`}>
@@ -341,14 +334,8 @@ export const PlayerDetailsModal = ({
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
-                <div className="text-3xl font-bold text-blue-600">{winRate}%</div>
-                <div className="text-sm text-gray-600">Win Rate</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
-                <div className="text-3xl font-bold text-purple-600">{player.wins + player.losses}</div>
-                <div className="text-sm text-gray-600">Total Matches</div>
+                <div className="text-3xl font-bold text-purple-600">{completedMatches.length}</div>
+                <div className="text-sm text-gray-600">Completed Matches</div>
               </CardContent>
             </Card>
           </div>
@@ -395,10 +382,6 @@ export const PlayerDetailsModal = ({
                       WhatsApp
                     </a>
                   )}
-                </div>
-                <div>
-                  <span className="font-semibold">Match Frequency:</span>{" "}
-                  {matchesPerMonth} per month
                 </div>
                 <div>
                   <span className="font-semibold">Clubs:</span>{" "}

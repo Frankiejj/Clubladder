@@ -14,7 +14,12 @@ export const useChallengeManagement = (players: Player[]) => {
     
     if (!challenger || !challenged) return;
     
-    if (challenger.rank > challenged.rank) {
+    const challengerRank = challenger.rank;
+    const challengedRank = challenged.rank;
+    const hasRankInfo =
+      typeof challengerRank === "number" && typeof challengedRank === "number";
+
+    if (!hasRankInfo || challengerRank > challengedRank) {
       const newChallenge: Challenge = {
         id: Date.now().toString(),
         challengerId,

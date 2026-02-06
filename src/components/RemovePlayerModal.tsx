@@ -12,9 +12,16 @@ interface RemovePlayerModalProps {
   onClose: () => void;
   players: Player[];
   onRemovePlayer: (playerId: string) => void;
+  rankByPlayerId?: Record<string, number>;
 }
 
-export const RemovePlayerModal = ({ isOpen, onClose, players, onRemovePlayer }: RemovePlayerModalProps) => {
+export const RemovePlayerModal = ({
+  isOpen,
+  onClose,
+  players,
+  onRemovePlayer,
+  rankByPlayerId,
+}: RemovePlayerModalProps) => {
   const { toast } = useToast();
   const [selectedPlayerId, setSelectedPlayerId] = useState("");
 
@@ -73,7 +80,7 @@ export const RemovePlayerModal = ({ isOpen, onClose, players, onRemovePlayer }: 
               <SelectContent>
                 {removablePlayers.map((player) => (
                   <SelectItem key={player.id} value={player.id}>
-                    #{player.rank} - {player.name} ({player.wins}W - {player.losses}L)
+                    #{rankByPlayerId?.[player.id] ?? player.rank ?? "-"} - {player.name}
                   </SelectItem>
                 ))}
               </SelectContent>

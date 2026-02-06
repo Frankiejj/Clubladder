@@ -52,7 +52,6 @@ const MyLadder = () => {
     id: string;
     email: string;
     clubs: string[];
-    singlesMatchFrequency: number | null;
   } | null>(null);
   const [selectedClubId, setSelectedClubId] = useState("");
   const [ladders, setLadders] = useState<LadderRow[]>([]);
@@ -81,7 +80,7 @@ const MyLadder = () => {
 
         const { data: playerRow, error } = await (supabase as any)
           .from("players")
-          .select("id,email,clubs,singles_match_frequency")
+          .select("id,email,clubs")
           .eq("email", user.email)
           .maybeSingle();
 
@@ -94,10 +93,6 @@ const MyLadder = () => {
           id: playerRow.id,
           email: playerRow.email,
           clubs: clubIds,
-          singlesMatchFrequency:
-            typeof playerRow.singles_match_frequency === "number"
-              ? playerRow.singles_match_frequency
-              : null,
         });
         setSelectedClubId(clubIds[0] || "");
 
@@ -207,10 +202,7 @@ const MyLadder = () => {
       ladders.forEach((ladder) => {
         if (typeof next[ladder.id] === "number") return;
         const membership = membershipsByLadder[ladder.id];
-        const fallback =
-          membership?.match_frequency ??
-          (ladder.type === "singles" ? player.singlesMatchFrequency : 1) ??
-          1;
+        const fallback = membership?.match_frequency ?? 1;
         next[ladder.id] = fallback;
       });
       return next;
@@ -327,22 +319,6 @@ const MyLadder = () => {
             p_team_avatar_url: ladder.type === "doubles" ? uploadedTeamAvatarUrl : null,
           });
         if (joinError) throw joinError;
-      }
-
-      if (ladder.type === "singles") {
-        const { error: playerError } = await (supabase as any)
-          .from("players")
-          .update({ singles_match_frequency: frequency })
-          .eq("id", player.id);
-        if (playerError) {
-          toast({
-            title: "Saved, but frequency update failed",
-            description: playerError.message,
-            variant: "destructive",
-          });
-        } else {
-          setPlayer((prev) => (prev ? { ...prev, singlesMatchFrequency: frequency } : prev));
-        }
       }
 
       const membershipResult = await fetchMemberships(player.id);

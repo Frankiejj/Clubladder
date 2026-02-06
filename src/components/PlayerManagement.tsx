@@ -11,12 +11,8 @@ export const usePlayerManagement = (initialPlayers: Player[]) => {
       id: Date.now().toString(),
       name,
       rank: players.length + 1,
-      wins: 0,
-      losses: 0,
       email: "",
       clubs: [],
-      matchFrequency: 1,
-      gender: "male"
     };
     setPlayers([...players, newPlayer]);
     toast({
@@ -57,7 +53,7 @@ export const usePlayerManagement = (initialPlayers: Player[]) => {
     });
   };
 
-  const handleSelfRegistration = (playerData: Omit<Player, 'id' | 'wins' | 'losses'>) => {
+  const handleSelfRegistration = (playerData: Omit<Player, 'id'>) => {
     // Place new players at the bottom of the ladder
     const insertPosition = players.length ? Math.max(...players.map((p) => p.rank)) + 1 : 1;
 
@@ -65,8 +61,6 @@ export const usePlayerManagement = (initialPlayers: Player[]) => {
       ...playerData,
       id: Date.now().toString(),
       rank: insertPosition,
-      wins: 0,
-      losses: 0
     };
 
     // Update ranks for players at or below the new position
@@ -96,18 +90,12 @@ export const usePlayerManagement = (initialPlayers: Player[]) => {
       const tempRank = challenger.rank;
       challenger.rank = challenged.rank;
       challenged.rank = tempRank;
-      challenger.wins++;
-      challenged.losses++;
-      
       toast({
         title: "Ladder Updated!",
         description: `${challenger.name} has moved up to rank ${challenger.rank}!`,
       });
     } else {
       // Challenged player wins - no rank change
-      challenger.losses++;
-      challenged.wins++;
-      
       toast({
         title: "Match Completed",
         description: `${challenged.name} successfully defended their position!`,

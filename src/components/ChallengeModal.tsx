@@ -25,10 +25,9 @@ export const ChallengeModal = ({ isOpen, onClose, players, onChallenge }: Challe
     }
   };
 
-  const availableChallengers = players.filter(p => p.rank > 1);
-  const challenger = players.find(p => p.id === challengerId);
-  const availableChallenged = challenger 
-    ? players.filter(p => p.rank < challenger.rank)
+  const availableChallengers = players;
+  const availableChallenged = challengerId
+    ? players.filter((p) => p.id !== challengerId)
     : [];
 
   return (
@@ -50,7 +49,7 @@ export const ChallengeModal = ({ isOpen, onClose, players, onChallenge }: Challe
               <SelectContent>
                 {availableChallengers.map((player) => (
                   <SelectItem key={player.id} value={player.id}>
-                    #{player.rank} {player.name}
+                    {player.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -68,7 +67,7 @@ export const ChallengeModal = ({ isOpen, onClose, players, onChallenge }: Challe
               <SelectContent>
                 {availableChallenged.map((player) => (
                   <SelectItem key={player.id} value={player.id}>
-                    #{player.rank} {player.name}
+                    {player.name}
                   </SelectItem>
                 ))}
               </SelectContent>

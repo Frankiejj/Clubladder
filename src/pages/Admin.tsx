@@ -13,9 +13,6 @@ interface PlayerRow {
   id: string;
   name: string;
   email: string;
-  rank: number;
-  wins: number;
-  losses: number;
   clubs: string[] | null;
   avatar_url?: string | null;
 }
@@ -128,8 +125,8 @@ const Admin = () => {
     const loadPlayers = async (clubs: string[]) => {
       const { data, error } = await (supabase as any)
         .from("players")
-        .select("id,name,email,rank,wins,losses,clubs,avatar_url")
-        .order("rank", { ascending: true });
+        .select("id,name,email,clubs,avatar_url")
+        .order("name", { ascending: true });
       if (error) throw error;
       const rows = Array.isArray(data) ? data : [];
       const filtered =
@@ -139,7 +136,7 @@ const Admin = () => {
       setPlayers(filtered as PlayerRow[]);
       if (filtered && filtered.length) {
         setSelectedPlayerId(filtered[0].id);
-        setSelectedPlayerRank(filtered[0].rank);
+        setSelectedPlayerRank(1);
       }
     };
 
@@ -332,21 +329,11 @@ const Admin = () => {
           selectedLadder?.type === "doubles" && partner
             ? `${player?.name || "Player"} & ${partner?.name || "Player"}`
             : player?.name || "Player";
-        const wins =
-          selectedLadder?.type === "doubles"
-            ? (player?.wins || 0) + (partner?.wins || 0)
-            : player?.wins || 0;
-        const losses =
-          selectedLadder?.type === "doubles"
-            ? (player?.losses || 0) + (partner?.losses || 0)
-            : player?.losses || 0;
         return {
           membershipId: row.id,
           rank: row.rank ?? 0,
           displayName,
           email: player?.email || "",
-          wins,
-          losses,
         };
       })
       .sort((a, b) => a.rank - b.rank);
@@ -708,7 +695,6 @@ const Admin = () => {
                               #{p.rank} {p.displayName}
                             </div>
                             <div className="text-xs text-gray-500">{p.email}</div>
-                            <div className="text-xs text-gray-500">W/L: {p.wins} / {p.losses}</div>
                           </div>
                           <div className="flex items-center gap-2">
                             {isSelected && (
@@ -750,7 +736,6 @@ const Admin = () => {
                             <div className="font-semibold">{p.displayName}</div>
                             <div className="text-xs text-gray-500">{p.email}</div>
                             <div className="text-xs text-gray-500">Current rank: #{p.rank}</div>
-                            <div className="text-xs text-gray-500">W/L: {p.wins} / {p.losses}</div>
                           </div>
                           <div>
                             <Label className="text-xs">New rank</Label>

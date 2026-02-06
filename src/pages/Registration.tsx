@@ -25,8 +25,10 @@ export default function Registration() {
   const { clubs } = useClubs(sport);
 
   const [name, setName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [countryCode, setCountryCode] = useState("1");
   const [clubId, setClubId] = useState("");
   const [availableSports, setAvailableSports] = useState<string[]>([]);
   const [sportsLoading, setSportsLoading] = useState(true);
@@ -99,10 +101,10 @@ export default function Registration() {
   }, []);
 
   const handleRegister = async () => {
-    if (!name.trim() || !email.trim() || !sport || !clubId || !phone.trim()) {
+    if (!name.trim() || !lastName.trim() || !email.trim() || !sport || !clubId || !phone.trim() || !countryCode.trim()) {
       toast({
         title: "Missing information",
-        description: "Name, email, phone, sport, and club are required.",
+        description: "First name, last name, email, country code, phone, sport, and club are required.",
         variant: "destructive",
       });
       return;
@@ -257,21 +259,11 @@ export default function Registration() {
       return;
     }
 
-    // Determine next available rank for this club (append to bottom)
-    let nextRank = 1;
-    const { data: highestRank, error: rankError } = await (supabase as any)
-      .from("players")
-      .select("rank")
-      .contains("clubs", [clubId])
-      .order("rank", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (rankError) {
-      console.error("Failed to fetch highest rank for club:", rankError);
-    } else if (highestRank?.rank && Number.isFinite(highestRank.rank)) {
-      nextRank = highestRank.rank + 1;
-    }
+    const normalizedCountryCode = countryCode.replace(/[^\d]/g, "");
+    const normalizedPhone = phone.replace(/[^\d]/g, "");
+    const fullPhone = normalizedCountryCode
+      ? `+${normalizedCountryCode}${normalizedPhone}`
+      : phone.trim();
 
     const playerId = crypto.randomUUID();
 
@@ -281,13 +273,9 @@ export default function Registration() {
       .insert({
         id: playerId,
         name,
+        last_name: lastName,
         email,
-        phone,
-        gender: null,
-        rank: nextRank, // new players go to bottom
-        wins: 0,
-        losses: 0,
-        singles_match_frequency: null,
+        phone: fullPhone,
         is_admin: false,
         clubs: clubId ? [clubId] : [],
         avatar_url: null,
@@ -358,8 +346,13 @@ export default function Registration() {
 
           <CardContent className="space-y-5">
             <div>
-              <Label>Name *</Label>
+              <Label>First name *</Label>
               <Input value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+
+            <div>
+              <Label>Last name *</Label>
+              <Input value={lastName} onChange={(e) => setLastName(e.target.value)} />
             </div>
 
             <div>
@@ -397,13 +390,28 @@ export default function Registration() {
 
             <div>
               <Label>Phone *</Label>
-              <Input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="Enter phone number"
-                required
-              />
+              <div className="mt-1 flex items-center gap-2">
+                <div className="flex items-center rounded-md border border-input bg-background px-2 h-10">
+                  <span className="text-sm text-muted-foreground">+</span>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={countryCode}
+                    onChange={(e) => setCountryCode(e.target.value.replace(/[^\d]/g, ""))}
+                    className="w-12 border-0 px-1 py-1 focus-visible:ring-0 focus-visible:ring-offset-0"
+                    aria-label="Country code"
+                  />
+                </div>
+                <Input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="Enter phone number"
+                  required
+                  className="flex-1"
+                />
+              </div>
             </div>
 
             <div>
@@ -509,3 +517,5 @@ export default function Registration() {
     </div>
   );
 }
+
+

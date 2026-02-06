@@ -17,8 +17,10 @@ const Profile = () => {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    full_name: "",
+    first_name: "",
+    last_name: "",
     phone: "",
+    countryCode: "1",
     club_ids: [] as string[],
     email: "",
     avatarUrl: "",
@@ -47,7 +49,7 @@ const Profile = () => {
 
         const { data: player, error } = await (supabase as any)
           .from("players")
-          .select("id,name,email,gender,rank,wins,losses,singles_match_frequency,is_admin,clubs,created_at,phone,avatar_url")
+          .select("id,name,last_name,email,is_admin,clubs,created_at,phone,avatar_url")
           .eq("email", session.user.email)
           .maybeSingle();
 
@@ -56,9 +58,22 @@ const Profile = () => {
         }
 
         setPlayerId(player.id);
+        const rawPhone = player.phone || "";
+        const digits = rawPhone.replace(/\D/g, "");
+        const derivedCountryCode =
+          rawPhone.trim().startsWith("+") && digits.length > 1
+            ? digits.slice(0, Math.min(3, digits.length - 1))
+            : "1";
+        const derivedPhone =
+          rawPhone.trim().startsWith("+") && digits.length > derivedCountryCode.length
+            ? digits.slice(derivedCountryCode.length)
+            : rawPhone;
+
         setFormData({
-          full_name: player.name || "",
-          phone: player.phone || "",
+          first_name: player.name || "",
+          last_name: player.last_name || "",
+          phone: derivedPhone || "",
+          countryCode: derivedCountryCode || "1",
           club_ids: (player.clubs || []).filter(Boolean),
           email: player.email || "",
           avatarUrl: player.avatar_url || "",
@@ -109,7 +124,11 @@ const Profile = () => {
     const { error } = await (supabase as any)
       .from("players")
       .update({
-        phone: formData.phone || null,
+        name: formData.first_name || null,
+        last_name: formData.last_name || null,
+        phone: formData.phone
+          ? `+${(formData.countryCode || "").replace(/[^\d]/g, "")}${formData.phone.replace(/[^\d]/g, "")}`
+          : null,
         clubs: formData.club_ids.length ? formData.club_ids : null,
         avatar_url: uploadedAvatarUrl || null,
       })
@@ -299,19 +318,39 @@ const Profile = () => {
                   </div>
                 </div>
 
-                <div>
-                  <Label
-                    htmlFor="name"
-                    className="text-sm font-medium text-gray-700"
-                  >
-                    Full Name
-                  </Label>
-                  <Input
-                    id="name"
-                    value={formData.full_name}
-                    disabled
-                    className="mt-1"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label
+                      htmlFor="first-name"
+                      className="text-sm font-medium text-gray-700"
+                    >
+                      First Name
+                    </Label>
+                    <Input
+                      id="first-name"
+                      value={formData.first_name}
+                      onChange={(e) =>
+                        setFormData({ ...formData, first_name: e.target.value })
+                      }
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label
+                      htmlFor="last-name"
+                      className="text-sm font-medium text-gray-700"
+                    >
+                      Last Name
+                    </Label>
+                    <Input
+                      id="last-name"
+                      value={formData.last_name}
+                      onChange={(e) =>
+                        setFormData({ ...formData, last_name: e.target.value })
+                      }
+                      className="mt-1"
+                    />
+                  </div>
                 </div>
 
                 <div>
@@ -358,16 +397,35 @@ const Profile = () => {
                   >
                     Phone Number
                   </Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) =>
-                      setFormData({ ...formData, phone: e.target.value })
-                    }
-                    className="mt-1"
-                    placeholder="+31 6 12345678"
-                  />
+                  <div className="mt-1 flex items-center gap-2">
+                    <div className="flex items-center rounded-md border border-input bg-background px-2 h-10">
+                      <span className="text-sm text-muted-foreground">+</span>
+                      <Input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={formData.countryCode}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            countryCode: e.target.value.replace(/[^\d]/g, ""),
+                          })
+                        }
+                        className="w-12 border-0 px-1 py-1 focus-visible:ring-0 focus-visible:ring-offset-0"
+                        aria-label="Country code"
+                      />
+                    </div>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      value={formData.phone}
+                      onChange={(e) =>
+                        setFormData({ ...formData, phone: e.target.value })
+                      }
+                      className="flex-1"
+                      placeholder="Enter phone number"
+                    />
+                  </div>
                 </div>
               </div>
 

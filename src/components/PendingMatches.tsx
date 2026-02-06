@@ -154,8 +154,8 @@ export const PendingMatches = ({
 
     const challengerName = getDisplayName(challenger);
     const challengedName = getDisplayName(challenged);
-    const challengerRank = rankByPlayerId?.[challenger.id] ?? challenger.rank;
-    const challengedRank = rankByPlayerId?.[challenged.id] ?? challenged.rank;
+    const challengerRank = rankByPlayerId?.[challenger.id] ?? challenger.rank ?? 0;
+    const challengedRank = rankByPlayerId?.[challenged.id] ?? challenged.rank ?? 0;
 
     if (winnerId === challenge.challengerId && challengerRank > challengedRank) {
       return `${challengerName} moves to rank #${challengedRank}`;
@@ -173,8 +173,8 @@ export const PendingMatches = ({
 
     const challengerPhone = challenger.phone ? challenger.phone.replace(/\D/g, "") : "";
     const challengedPhone = challenged.phone ? challenged.phone.replace(/\D/g, "") : "";
-    const challengerRank = rankByPlayerId?.[challenger.id] ?? challenger.rank;
-    const challengedRank = rankByPlayerId?.[challenged.id] ?? challenged.rank;
+    const challengerRank = rankByPlayerId?.[challenger.id] ?? challenger.rank ?? 0;
+    const challengedRank = rankByPlayerId?.[challenged.id] ?? challenged.rank ?? 0;
 
     const opponent = currentUser
       ? currentUser.id === challenge.challengerId
@@ -323,7 +323,7 @@ export const PendingMatches = ({
 
         {!isCompleted && onScheduleMatch && isMatchParticipant(challenge) && (
           <div className="border-t pt-4 bg-white p-4 rounded-lg flex flex-col gap-3">
-            <div className="flex items-center gap-2 text-sm text-gray-700">
+            <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-700">
               <CalendarIcon className="h-4 w-4" />
               <span>{challenge.status === "scheduled" ? "Reschedule this match" : "Schedule this match"}</span>
             </div>
@@ -331,7 +331,7 @@ export const PendingMatches = ({
               <Button
                 variant="outline"
                 onClick={() => setOpenScheduler((prev) => ({ ...prev, [challenge.id]: true }))}
-                className="w-full sm:w-auto"
+                className="w-full sm:w-auto text-xs sm:text-sm"
               >
                 {challenge.status === "scheduled" ? "Reschedule" : "Schedule match"}
               </Button>
@@ -346,7 +346,7 @@ export const PendingMatches = ({
                       [challenge.id]: e.target.value,
                     }))
                   }
-                  className="w-full sm:w-64"
+                  className="w-full sm:w-64 text-xs sm:text-sm"
                 />
                 <Button
                   variant="outline"
@@ -363,11 +363,12 @@ export const PendingMatches = ({
                     const localIsoMinute = adjusted.toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM
                     onScheduleMatch(challenge.id, localIsoMinute);
                   }}
+                  className="text-xs sm:text-sm"
                 >
                   Set date
                 </Button>
                 {challenge.scheduledDate && (
-                  <span className="text-sm text-gray-600">
+                  <span className="text-xs sm:text-sm text-gray-600">
                     Current: {formatLocalDateTime(challenge.scheduledDate)}
                   </span>
                 )}
@@ -378,10 +379,17 @@ export const PendingMatches = ({
 
         {canEnterScore && (!isCompleted || isEditing) && (
           <div className="border-t pt-4 bg-white p-4 rounded-lg">
-            <h4 className="font-medium mb-3">{isCompleted ? "Edit Match Result" : "Enter Match Result"}</h4>
-            <div className="grid grid-cols-2 gap-4 mb-4">
+            <h4 className="font-medium text-sm sm:text-base mb-3">
+              {isCompleted ? "Edit Match Result" : "Enter Match Result"}
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
               <div>
-                <Label htmlFor={`score1-${challenge.id}`}>{getDisplayName(challenger)} Score</Label>
+                <Label
+                  htmlFor={`score1-${challenge.id}`}
+                  className="text-xs sm:text-sm leading-tight break-words"
+                >
+                  {getDisplayName(challenger)} Score
+                </Label>
                 <Input
                   id={`score1-${challenge.id}`}
                   type="number"
@@ -398,11 +406,16 @@ export const PendingMatches = ({
                     
                   }}
                   placeholder="0"
-                  className="mt-1"
+                  className="mt-1 text-sm sm:text-base"
                 />
               </div>
               <div>
-                <Label htmlFor={`score2-${challenge.id}`}>{getDisplayName(challenged)} Score</Label>
+                <Label
+                  htmlFor={`score2-${challenge.id}`}
+                  className="text-xs sm:text-sm leading-tight break-words"
+                >
+                  {getDisplayName(challenged)} Score
+                </Label>
                 <Input
                   id={`score2-${challenge.id}`}
                   type="number"
@@ -419,7 +432,7 @@ export const PendingMatches = ({
                     
                   }}
                   placeholder="0"
-                  className="mt-1"
+                  className="mt-1 text-sm sm:text-base"
                 />
               </div>
             </div>

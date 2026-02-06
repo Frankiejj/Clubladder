@@ -61,7 +61,7 @@ export const generateMonthlyMatches = (players: Player[], ladderType: "singles" 
     const sortedPlayers = [...players].sort((a, b) => a.rank - b.rank);
 
     sortedPlayers.forEach((player) => {
-      const matchesToGenerate = player.matchFrequency;
+      const matchesToGenerate = 1;
       let matchesGenerated = 0;
 
       // Find suitable opponents within 2 rank positions

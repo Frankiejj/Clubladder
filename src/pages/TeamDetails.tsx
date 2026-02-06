@@ -99,7 +99,7 @@ const TeamDetails = () => {
       const { data: playerRows, error: playerError } = await (supabase as any)
         .from("players")
         .select(
-          "id,name,email,gender,rank,wins,losses,singles_match_frequency,is_admin,is_super_admin,clubs,created_at,phone,avatar_url"
+          "id,name,email,is_admin,is_super_admin,clubs,created_at,phone,avatar_url"
         )
         .in("id", Array.from(ids));
 
@@ -138,13 +138,7 @@ const TeamDetails = () => {
           id: row.id,
           name: row.name,
           email: row.email,
-          gender: row.gender,
-          rank: row.rank,
-          wins: row.wins ?? 0,
-          losses: row.losses ?? 0,
-          matchFrequency: row.singles_match_frequency ?? null,
-          singlesMatchFrequency: row.singles_match_frequency ?? null,
-          doublesMatchFrequency: null,
+          rank: 0,
           isAdmin: row.is_admin ?? false,
           isSuperAdmin: (row as any).is_super_admin ?? false,
           clubs: row.clubs ?? null,

@@ -115,9 +115,9 @@ export default function Index() {
     const { data, error } = await supabase
       .from("players")
       .select(
-        "id,name,email,gender,rank,wins,losses,singles_match_frequency,is_admin,is_super_admin,clubs,created_at,phone,avatar_url"
+        "id,name,email,is_admin,is_super_admin,clubs,created_at,phone,avatar_url"
       )
-      .order("rank", { ascending: true });
+      .order("name", { ascending: true });
 
     if (error || !data) {
       console.error("Error loading players:", error);
@@ -129,13 +129,7 @@ export default function Index() {
         id: row.id,
         name: row.name,
         email: row.email,
-        gender: row.gender,
-        rank: row.rank,
-        wins: row.wins ?? 0,
-        losses: row.losses ?? 0,
-        matchFrequency: row.singles_match_frequency ?? null,
-        singlesMatchFrequency: row.singles_match_frequency ?? null,
-        doublesMatchFrequency: null,
+        rank: 0,
         isAdmin: row.is_admin ?? false,
         isSuperAdmin: (row as any).is_super_admin ?? false,
         clubs: row.clubs ?? null,
@@ -280,22 +274,11 @@ export default function Index() {
   // UI
   // --------------------------
   const sortedPlayers = [...visiblePlayers].sort((a, b) => {
-    // Primary: lower rank first
-    if (a.rank !== b.rank) return a.rank - b.rank;
-
-    const aMatches = (a.wins ?? 0) + (a.losses ?? 0);
-    const bMatches = (b.wins ?? 0) + (b.losses ?? 0);
-    const aWinRate = aMatches > 0 ? a.wins / aMatches : 0;
-    const bWinRate = bMatches > 0 ? b.wins / bMatches : 0;
-
-    // Secondary: higher win rate
-    if (aWinRate !== bWinRate) return bWinRate - aWinRate;
-
-    // Tertiary: more matches played
-    if (aMatches !== bMatches) return bMatches - aMatches;
-
-    // Next: higher singles rating
-    // Finally: alphabetical name
+    const aRank = ladderRankMap[a.id];
+    const bRank = ladderRankMap[b.id];
+    if (typeof aRank === "number" && typeof bRank === "number" && aRank !== bRank) {
+      return aRank - bRank;
+    }
     return a.name.localeCompare(b.name);
   });
 
@@ -304,12 +287,13 @@ export default function Index() {
         .filter((p) => ladderPlayerIds.has(p.id))
         .map((player) => ({
           ...player,
-          rank: ladderRankMap[player.id] ?? player.rank,
+          rank: ladderRankMap[player.id] ?? null,
           membershipId: ladderMembershipIdMap[player.id],
         }))
         .sort(
           (a, b) =>
-            (ladderRankMap[a.id] ?? a.rank) - (ladderRankMap[b.id] ?? b.rank)
+            (ladderRankMap[a.id] ?? Number.MAX_SAFE_INTEGER) -
+            (ladderRankMap[b.id] ?? Number.MAX_SAFE_INTEGER)
         )
     : [];
 
@@ -713,6 +697,7 @@ export default function Index() {
           onClose={() => setShowRemovePlayerModal(false)}
           players={players}
           onRemovePlayer={removePlayer}
+          rankByPlayerId={ladderRankMap}
         />
 
         <PlayerDetailsModal

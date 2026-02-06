@@ -81,7 +81,7 @@ export const ClubAdminControls = ({ currentUser, players, onRemovePlayer }: Club
                 <SelectContent>
                   {clubPlayers.map((player) => (
                     <SelectItem key={player.id} value={player.id}>
-                      #{player.rank} - {player.name} ({player.wins}W - {player.losses}L)
+                      #{player.rank} - {player.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

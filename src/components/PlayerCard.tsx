@@ -33,8 +33,10 @@ export const PlayerCard = ({
 }: PlayerCardProps) => {
   const displayName = partnerName ? `${player.name} & ${partnerName}` : player.name;
   const avatarSrc = partnerName ? teamAvatarUrl || undefined : player.avatarUrl || (player as any).avatar_url || undefined;
+  const playerRank = typeof player.rank === "number" ? player.rank : null;
 
   const calculatePredictedRank = () => {
+    if (playerRank === null) return null;
     if (!selectedLadderId || !currentRoundLabel) return null;
     const roundMatches = challenges.filter((c) =>
       c.ladderId === selectedLadderId &&
@@ -54,15 +56,16 @@ export const PlayerCard = ({
       const opponentId = match.challengerId === player.id ? match.challengedId : match.challengerId;
       const opponent = players.find((p) => p.id === opponentId);
       if (!opponent) return;
+      if (typeof opponent.rank !== "number") return;
 
       if (match.winnerId === player.id) {
         wins += 1;
-        if (opponent.rank < player.rank) {
+        if (opponent.rank < playerRank) {
           higherBeaten.push(opponent.rank);
         }
       } else {
         losses += 1;
-        if (opponent.rank > player.rank) {
+        if (opponent.rank > playerRank) {
           lowerLost.push(opponent.rank);
         }
       }
@@ -73,12 +76,12 @@ export const PlayerCard = ({
 
     if (wins === played) {
       if (higherBeaten.length > 0) return Math.min(...higherBeaten);
-      return player.rank;
+      return playerRank;
     }
 
     if (losses === played) {
       if (lowerLost.length > 0) return Math.max(...lowerLost);
-      return player.rank;
+      return playerRank;
     }
 
     if (higherBeaten.length > 0 && lowerLost.length > 0) {
@@ -87,7 +90,7 @@ export const PlayerCard = ({
       return Math.round((avgHigher + avgLower) / 2);
     }
 
-    return player.rank;
+    return playerRank;
   };
 
   const predictedRank = calculatePredictedRank();
@@ -107,9 +110,11 @@ export const PlayerCard = ({
       <div className="flex flex-row items-center p-2 sm:p-3">
         {/* Rank Badge */}
         <div className="relative mr-3 sm:mr-4 flex-shrink-0">
-          <div className={`font-bold text-base ${getRankColor(player.rank)}`}>#{player.rank}</div>
+          <div className={`font-bold text-base ${getRankColor(playerRank ?? 0)}`}>
+            #{playerRank ?? "-"}
+          </div>
           {/* Optional quick next-rank indicator for current user */}
-          {predictedRank && predictedRank !== player.rank && player.id === currentUserId && (
+          {predictedRank && predictedRank !== playerRank && player.id === currentUserId && (
             <div className="absolute -right-2 -top-2 bg-green-500 text-white rounded-full w-7 h-7 flex items-center justify-center text-[10px] font-bold shadow-md animate-bounce">
               #{predictedRank}
             </div>
@@ -129,9 +134,9 @@ export const PlayerCard = ({
           </div>
 
           <div className="flex flex-wrap justify-center sm:justify-start items-center gap-x-3 gap-y-2 text-[11px] sm:text-xs text-gray-600">
-            {predictedRank && predictedRank !== player.rank && (
+            {predictedRank && predictedRank !== playerRank && (
               <div className="flex items-center gap-1">
-                {predictedRank < player.rank ? (
+                {predictedRank < (playerRank ?? 0) ? (
                   <ArrowUp className="h-3.5 w-3.5 text-green-600" />
                 ) : (
                   <ArrowDown className="h-3.5 w-3.5 text-red-600" />

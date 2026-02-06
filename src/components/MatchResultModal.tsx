@@ -54,7 +54,7 @@ export const MatchResultModal = ({ isOpen, onClose, challenge, players, onResult
                   </div>
                   <div>
                     <h3 className="font-bold text-lg">{challenger.name}</h3>
-                    <p className="text-sm text-gray-600">Challenger (Rank #{challenger.rank})</p>
+                    <p className="text-sm text-gray-600">Challenger</p>
                   </div>
                 </div>
                 <Trophy className="h-6 w-6 text-yellow-500" />
@@ -74,7 +74,7 @@ export const MatchResultModal = ({ isOpen, onClose, challenge, players, onResult
                   </div>
                   <div>
                     <h3 className="font-bold text-lg">{challenged.name}</h3>
-                    <p className="text-sm text-gray-600">Defender (Rank #{challenged.rank})</p>
+                    <p className="text-sm text-gray-600">Defender</p>
                   </div>
                 </div>
                 <Trophy className="h-6 w-6 text-yellow-500" />

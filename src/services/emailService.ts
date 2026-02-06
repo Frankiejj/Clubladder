@@ -35,7 +35,7 @@ const matchList = matches.map(match => {
   const opponent = allPlayers.find(p => p.id === opponentId);
   return `
     <li>
-      <strong>vs ${opponent?.name}</strong> (Rank #${opponent?.rank ?? "?"})
+      <strong>vs ${opponent?.name}</strong>
       ${match.scheduledDate ? `- Scheduled: ${match.scheduledDate}` : ""}
       ${opponent?.phone ? ` - Phone: ${opponent.phone}` : ""}
       ${opponent?.email ? ` - Email: ${opponent.email}` : ""}

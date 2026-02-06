@@ -117,7 +117,7 @@ const ClubAdmin = () => {
                     <SelectContent>
                       {clubPlayers.map((player) => (
                         <SelectItem key={player.id} value={player.id}>
-                          #{player.rank} - {player.name} ({player.wins}W - {player.losses}L)
+                          #{player.rank} - {player.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -158,9 +158,6 @@ const ClubAdmin = () => {
                       >
                         <div>
                           <span className="font-medium">#{player.rank} - {player.name}</span>
-                          <span className="text-sm text-gray-500 ml-2">
-                            ({player.wins}W - {player.losses}L)
-                          </span>
                         </div>
                         <span className="text-xs text-gray-400">{player.email}</span>
                       </div>

@@ -84,12 +84,8 @@ export type Database = {
         Row: {
           id: string;
           name: string;
+          last_name: string | null;
           email: string;
-          gender: string | null;
-          rank: number;
-          wins: number | null;
-          losses: number | null;
-          singles_match_frequency: number | null;
           is_admin: boolean | null;
           clubs: string[] | null;
           created_at: string | null;
@@ -98,12 +94,8 @@ export type Database = {
         Insert: {
           id?: string;
           name: string;
+          last_name?: string | null;
           email: string;
-          gender?: string | null;
-          rank?: number;
-          wins?: number | null;
-          losses?: number | null;
-          singles_match_frequency?: number | null;
           is_admin?: boolean | null;
           clubs?: string[] | null;
           created_at?: string | null;
