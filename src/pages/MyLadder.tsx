@@ -170,6 +170,40 @@ const MyLadder = () => {
         return;
       }
       const ladderIds = ladders.map((l) => l.id);
+
+      const buildMap = (rows: Array<{ ladder_id: string; member_id?: string; player_id?: string; partner_id?: string }>) => {
+        const map: Record<string, Set<string>> = {};
+        rows.forEach((row) => {
+          const ladderId = row.ladder_id;
+          if (!map[ladderId]) map[ladderId] = new Set();
+          const memberId = row.member_id;
+          if (memberId) map[ladderId].add(memberId);
+          if (row.player_id) map[ladderId].add(row.player_id);
+          if (row.partner_id) map[ladderId].add(row.partner_id);
+        });
+        const serializable: Record<string, string[]> = {};
+        Object.entries(map).forEach(([ladderId, set]) => {
+          serializable[ladderId] = Array.from(set);
+        });
+        return serializable;
+      };
+
+      // Prefer RPC that bypasses RLS for membership visibility (recommended)
+      const { data: rpcRows, error: rpcError } = await (supabase as any).rpc(
+        "get_ladder_member_ids_for_ladders",
+        { ladder_ids: ladderIds }
+      );
+
+      if (!rpcError && rpcRows) {
+        setLadderMemberIdsByLadder(buildMap(rpcRows as any[]));
+        return;
+      }
+
+      if (rpcError) {
+        console.warn("get_ladder_member_ids_for_ladders RPC failed, falling back to direct select.", rpcError);
+      }
+
+      // Fallback to direct select (may be filtered by RLS)
       const { data, error } = await (supabase as any)
         .from("ladder_memberships")
         .select("ladder_id,player_id,partner_id")
@@ -179,17 +213,8 @@ const MyLadder = () => {
         setLadderMemberIdsByLadder({});
         return;
       }
-      const map: Record<string, Set<string>> = {};
-      (data as any[] | null)?.forEach((row) => {
-        if (!map[row.ladder_id]) map[row.ladder_id] = new Set();
-        if (row.player_id) map[row.ladder_id].add(row.player_id);
-        if (row.partner_id) map[row.ladder_id].add(row.partner_id);
-      });
-      const serializable: Record<string, string[]> = {};
-      Object.entries(map).forEach(([ladderId, set]) => {
-        serializable[ladderId] = Array.from(set);
-      });
-      setLadderMemberIdsByLadder(serializable);
+
+      setLadderMemberIdsByLadder(buildMap((data as any[] | null) || []));
     };
 
     loadLadderMembers();
@@ -200,10 +225,14 @@ const MyLadder = () => {
     setFrequencyByLadder((prev) => {
       const next = { ...prev };
       ladders.forEach((ladder) => {
-        if (typeof next[ladder.id] === "number") return;
         const membership = membershipsByLadder[ladder.id];
-        const fallback = membership?.match_frequency ?? 1;
-        next[ladder.id] = fallback;
+        if (typeof membership?.match_frequency === "number") {
+          next[ladder.id] = membership.match_frequency;
+          return;
+        }
+        if (typeof next[ladder.id] !== "number") {
+          next[ladder.id] = 1;
+        }
       });
       return next;
     });
@@ -454,10 +483,29 @@ const MyLadder = () => {
                       return a.type === "singles" ? -1 : 1;
                     }).map((ladder) => {
                       const membership = membershipsByLadder[ladder.id];
+                      const membershipFrequency =
+                        typeof membership?.match_frequency === "number"
+                          ? membership.match_frequency
+                          : undefined;
                       const isPartnerMembership = Boolean(membership?.is_partner);
-                      const frequencyValue = frequencyByLadder[ladder.id] ?? 1;
+                      const frequencyValue =
+                        typeof frequencyByLadder[ladder.id] === "number"
+                          ? frequencyByLadder[ladder.id]
+                          : membershipFrequency ?? 1;
                       const partnerValue = partnerByLadder[ladder.id] || "none";
                       const takenIds = new Set(ladderMemberIdsByLadder[ladder.id] || []);
+                      const availablePartners = clubPlayers.filter((p) => {
+                        if (p.id === player.id) return false;
+                        return !takenIds.has(p.id);
+                      });
+                      const partnerDisplayId = membership?.partner_id
+                        ? membership.partner_id
+                        : membership?.is_partner
+                        ? membership.player_id
+                        : null;
+                      const partnerDisplayName = partnerDisplayId
+                        ? clubPlayers.find((p) => p.id === partnerDisplayId)?.name || "Unknown member"
+                        : "Not set";
                       const requiresPartner = ladder.type === "doubles";
                       const canJoinDoubles =
                         !requiresPartner || (partnerValue !== "none" && partnerValue !== "");
@@ -483,7 +531,7 @@ const MyLadder = () => {
                               </div>
                             </div>
 
-                            {ladder.type === "doubles" && (
+                            {ladder.type === "doubles" && !membership && (
                               <div>
                                 <Label className="text-sm font-medium text-gray-700">
                                   Doubles partner (same club)
@@ -504,29 +552,28 @@ const MyLadder = () => {
                                   </SelectTrigger>
                                   <SelectContent>
                                     <SelectItem value="none">No partner</SelectItem>
-                                    {clubPlayers
-                                      .filter((p) => {
-                                        if (p.id === player.id) return false;
-                                        if (partnerValue !== "none" && p.id === partnerValue) return true;
-                                        return !takenIds.has(p.id);
-                                      })
-                                      .map((p) => (
-                                        <SelectItem key={p.id} value={p.id}>
-                                          {p.name}
-                                        </SelectItem>
-                                      ))}
+                                    {availablePartners.map((p) => (
+                                      <SelectItem key={p.id} value={p.id}>
+                                        {p.name}
+                                      </SelectItem>
+                                    ))}
                                     {clubPlayers.length <= 1 && (
                                       <SelectItem value="no-partners" disabled>
                                         No club players available
                                       </SelectItem>
                                     )}
+                                    {clubPlayers.length > 1 && availablePartners.length === 0 && (
+                                      <SelectItem value="no-available" disabled>
+                                        No available partners
+                                      </SelectItem>
+                                    )}
                                   </SelectContent>
                                 </Select>
-                                {membership && (
-                                  <p className="text-xs text-gray-600 mt-1">
-                                    Leave the ladder to change partner.
-                                  </p>
-                                )}
+                              </div>
+                            )}
+                            {ladder.type === "doubles" && membership && (
+                              <div className="text-sm font-semibold text-gray-700">
+                                Partner: {partnerDisplayName}
                               </div>
                             )}
 
@@ -614,19 +661,10 @@ const MyLadder = () => {
                                     return;
                                   }
 
-                                  const leaveResponse =
-                                    ladder.type === "doubles"
-                                      ? await (supabase as any)
-                                          .from(membershipTable)
-                                          .delete()
-                                          .eq("ladder_id", ladder.id)
-                                          .or(`player_id.eq.${player.id},partner_id.eq.${player.id}`)
-                                      : await (supabase as any)
-                                          .from(membershipTable)
-                                          .delete()
-                                          .eq("ladder_id", ladder.id)
-                                          .eq("player_id", player.id);
-                                  const error = leaveResponse?.error;
+                                  const { error } = await (supabase as any).rpc(
+                                    "leave_ladder_and_reseed",
+                                    { p_membership_id: membershipId }
+                                  );
                                   setSavingLadderId(null);
                                   if (error) {
                                     toast({
