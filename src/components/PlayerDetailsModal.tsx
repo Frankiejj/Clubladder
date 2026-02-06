@@ -142,7 +142,7 @@ export const PlayerDetailsModal = ({
       return bDate - aDate; // most recent first
     });
 
-  // Upcoming (pending/accepted) matches for this player
+  // Upcoming (pending/accepted/scheduled) matches for this player
   const upcomingMatches = challenges
     .filter((c) => {
       const isSinglesView = selectedLadderType === "singles";
@@ -166,9 +166,9 @@ export const PlayerDetailsModal = ({
           if (!ladderHasPartnerByPlayerId[c.challengerId]) return false;
           if (!ladderHasPartnerByPlayerId[c.challengedId]) return false;
         }
-        return c.status === "pending" || c.status === "accepted";
+        return c.status === "pending" || c.status === "accepted" || c.status === "scheduled";
       }
-      return c.status === "pending" || c.status === "accepted";
+      return c.status === "pending" || c.status === "accepted" || c.status === "scheduled";
     })
     .sort((a, b) => {
       const aDate = a.scheduledDate ? new Date(a.scheduledDate).getTime() : Number.MAX_SAFE_INTEGER;
@@ -465,7 +465,11 @@ export const PlayerDetailsModal = ({
                       <div key={match.id} className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                         <div className="flex items-center gap-3">
                           <Badge className="bg-yellow-100 text-yellow-800">
-                            {match.status === 'pending' ? 'Pending' : 'Accepted'}
+                            {match.status === 'pending'
+                              ? 'Pending'
+                              : match.status === 'scheduled'
+                              ? 'Scheduled'
+                              : 'Accepted'}
                           </Badge>
                           <span>vs {opponent?.name || `Opponent #${opponentId}`}</span>
                         </div>

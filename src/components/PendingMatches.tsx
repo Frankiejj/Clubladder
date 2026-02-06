@@ -330,7 +330,19 @@ export const PendingMatches = ({
               <button
                 type="button"
                 className="flex items-center gap-2 hover:text-green-700"
-                onClick={() => setOpenScheduler((prev) => ({ ...prev, [challenge.id]: true }))}
+                onClick={() => {
+                  setOpenScheduler((prev) => ({ ...prev, [challenge.id]: true }));
+                  setScheduleValues((prev) => {
+                    if (prev[challenge.id]?.date && prev[challenge.id]?.time) return prev;
+                    const now = new Date();
+                    const hh = String(now.getHours()).padStart(2, "0");
+                    const mm = String(now.getMinutes()).padStart(2, "0");
+                    return {
+                      ...prev,
+                      [challenge.id]: { date: now, time: `${hh}:${mm}` },
+                    };
+                  });
+                }}
                 aria-label="Open calendar"
               >
                 <CalendarIcon className="h-4 w-4" />
@@ -342,7 +354,19 @@ export const PendingMatches = ({
             {!openScheduler[challenge.id] ? (
               <Button
                 variant="outline"
-                onClick={() => setOpenScheduler((prev) => ({ ...prev, [challenge.id]: true }))}
+                onClick={() => {
+                  setOpenScheduler((prev) => ({ ...prev, [challenge.id]: true }));
+                  setScheduleValues((prev) => {
+                    if (prev[challenge.id]?.date && prev[challenge.id]?.time) return prev;
+                    const now = new Date();
+                    const hh = String(now.getHours()).padStart(2, "0");
+                    const mm = String(now.getMinutes()).padStart(2, "0");
+                    return {
+                      ...prev,
+                      [challenge.id]: { date: now, time: `${hh}:${mm}` },
+                    };
+                  });
+                }}
                 className="w-full sm:w-auto text-xs sm:text-sm"
               >
                 {challenge.status === "scheduled" ? "Reschedule" : "Schedule match"}
@@ -367,7 +391,7 @@ export const PendingMatches = ({
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
-                <div className="flex flex-col sm:flex-row gap-3 items-start max-w-full">
+                <div className="flex flex-col gap-3 items-stretch max-w-full">
                   <Calendar
                     mode="single"
                     selected={scheduleValues[challenge.id]?.date}
@@ -380,9 +404,15 @@ export const PendingMatches = ({
                         },
                       }))
                     }
-                    className="rounded-md border w-full max-w-full"
+                    className="rounded-md border-[3px] border-gray-300 w-full max-w-full mx-auto p-2 overflow-hidden"
+                    classNames={{
+                      table: "w-full border-collapse",
+                      head_cell: "text-muted-foreground rounded-md w-8 font-normal text-[0.65rem]",
+                      cell: "h-8 w-8 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+                      day: "h-8 w-8 p-0 text-[0.65rem] font-normal aria-selected:opacity-100",
+                    }}
                   />
-                  <div className="flex flex-col gap-2 w-full sm:w-auto">
+                  <div className="flex flex-col gap-2 w-full min-w-0">
                     <Input
                       type="time"
                       value={scheduleValues[challenge.id]?.time || ""}
@@ -395,7 +425,7 @@ export const PendingMatches = ({
                           },
                         }))
                       }
-                      className="w-full sm:w-40 text-xs sm:text-sm"
+                      className="w-full max-w-[16rem] mx-auto text-xs sm:text-sm font-semibold"
                     />
                     <Button
                       variant="outline"
@@ -414,7 +444,7 @@ export const PendingMatches = ({
                         const localIsoMinute = adjusted.toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM
                         onScheduleMatch(challenge.id, localIsoMinute);
                       }}
-                      className="text-xs sm:text-sm"
+                      className="w-full max-w-[16rem] mx-auto text-xs sm:text-sm"
                     >
                       Set date
                     </Button>
