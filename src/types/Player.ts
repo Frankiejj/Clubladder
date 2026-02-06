@@ -9,4 +9,5 @@ export interface Player {
   phone?: string | null;
   createdAt?: string;
   avatarUrl?: string | null;
+  last_name?: string | null;
 }

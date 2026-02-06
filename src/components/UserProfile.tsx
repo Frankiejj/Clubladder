@@ -101,13 +101,7 @@ export const UserProfile = ({ currentUser, onUpdateProfile, players, onRemovePla
           <DropdownMenuItem
             onSelect={(e) => {
               e.preventDefault();
-              navigate("/my-matches", {
-                state: {
-                  currentUser,
-                  challenges: challenges || [],
-                  players,
-                },
-              });
+              navigate("/my-matches");
             }}
             className="flex items-center gap-2 cursor-pointer"
           >

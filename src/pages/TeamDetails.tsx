@@ -14,6 +14,7 @@ type MembershipRow = {
   player_id: string;
   partner_id: string | null;
   rank: number | null;
+  match_frequency?: number | null;
 };
 
 type LadderRow = {
@@ -54,7 +55,7 @@ const TeamDetails = () => {
 
       const { data: membershipRow, error: membershipError } = await (supabase as any)
         .from("ladder_memberships")
-        .select("id,ladder_id,player_id,partner_id,rank")
+        .select("id,ladder_id,player_id,partner_id,rank,match_frequency")
         .eq("id", membershipId)
         .maybeSingle();
 
@@ -99,7 +100,7 @@ const TeamDetails = () => {
       const { data: playerRows, error: playerError } = await (supabase as any)
         .from("players")
         .select(
-          "id,name,email,is_admin,is_super_admin,clubs,created_at,phone,avatar_url"
+          "id,name,last_name,email,is_admin,is_super_admin,clubs,created_at,phone,avatar_url"
         )
         .in("id", Array.from(ids));
 
@@ -146,6 +147,7 @@ const TeamDetails = () => {
           phone: row.phone ?? null,
           avatarUrl: row.avatar_url ?? null,
           avatar_url: row.avatar_url ?? null,
+          last_name: row.last_name ?? null,
         }))
       );
       setMatches(
@@ -252,10 +254,14 @@ const TeamDetails = () => {
   }, [ladderMembers]);
 
   const teamName = useMemo(() => {
+    const formatName = (p?: Player) => {
+      if (!p) return "";
+      return [p.name, p.last_name].filter(Boolean).join(" ");
+    };
     if (teamPlayers.length === 2) {
-      return `${teamPlayers[0].name} & ${teamPlayers[1].name}`;
+      return `${formatName(teamPlayers[0])} & ${formatName(teamPlayers[1])}`;
     }
-    if (teamPlayers.length === 1) return teamPlayers[0].name;
+    if (teamPlayers.length === 1) return formatName(teamPlayers[0]);
     return "Team";
   }, [teamPlayers]);
 
@@ -265,21 +271,11 @@ const TeamDetails = () => {
         const isTeamMatch =
           teamIds.has(m.challengerId) || teamIds.has(m.challengedId);
         if (!isTeamMatch) return false;
+        if (membership?.ladder_id && m.ladderId !== membership.ladder_id) return false;
         if (showMyMatchesOnly && currentUserId) {
           if (m.challengerId !== currentUserId && m.challengedId !== currentUserId) {
             return false;
           }
-        }
-        const inLadder =
-          ladderMemberIds.has(m.challengerId) &&
-          ladderMemberIds.has(m.challengedId);
-        if (!inLadder) return false;
-        const challengerHasPartner = ladderHasPartnerByPlayerId[m.challengerId];
-        const challengedHasPartner = ladderHasPartnerByPlayerId[m.challengedId];
-        if (ladder?.type === "doubles") {
-          if (!challengerHasPartner || !challengedHasPartner) return false;
-        } else {
-          if (challengerHasPartner || challengedHasPartner) return false;
         }
         return m.status === "completed";
       })
@@ -290,7 +286,7 @@ const TeamDetails = () => {
         const bTime = bDate ? new Date(bDate).getTime() : 0;
         return bTime - aTime;
       });
-  }, [matches, teamIds, ladderMemberIds, ladderHasPartnerByPlayerId, ladder?.type, showMyMatchesOnly, currentUserId]);
+  }, [matches, teamIds, membership?.ladder_id, showMyMatchesOnly, currentUserId]);
 
   const upcomingMatches = useMemo(() => {
     return matches
@@ -298,30 +294,20 @@ const TeamDetails = () => {
         const isTeamMatch =
           teamIds.has(m.challengerId) || teamIds.has(m.challengedId);
         if (!isTeamMatch) return false;
+        if (membership?.ladder_id && m.ladderId !== membership.ladder_id) return false;
         if (showMyMatchesOnly && currentUserId) {
           if (m.challengerId !== currentUserId && m.challengedId !== currentUserId) {
             return false;
           }
         }
-        const inLadder =
-          ladderMemberIds.has(m.challengerId) &&
-          ladderMemberIds.has(m.challengedId);
-        if (!inLadder) return false;
-        const challengerHasPartner = ladderHasPartnerByPlayerId[m.challengerId];
-        const challengedHasPartner = ladderHasPartnerByPlayerId[m.challengedId];
-        if (ladder?.type === "doubles") {
-          if (!challengerHasPartner || !challengedHasPartner) return false;
-        } else {
-          if (challengerHasPartner || challengedHasPartner) return false;
-        }
-        return m.status === "pending" || m.status === "accepted";
+        return m.status === "pending" || m.status === "accepted" || m.status === "scheduled";
       })
       .sort((a, b) => {
         const aDate = a.scheduledDate ? new Date(a.scheduledDate).getTime() : Number.MAX_SAFE_INTEGER;
         const bDate = b.scheduledDate ? new Date(b.scheduledDate).getTime() : Number.MAX_SAFE_INTEGER;
         return aDate - bDate;
       });
-  }, [matches, teamIds, ladderMemberIds, ladderHasPartnerByPlayerId, ladder?.type, showMyMatchesOnly, currentUserId]);
+  }, [matches, teamIds, membership?.ladder_id, showMyMatchesOnly, currentUserId]);
 
   const getOpponentName = (match: Challenge) => {
     const opponentId = teamIds.has(match.challengerId)
@@ -434,7 +420,7 @@ const TeamDetails = () => {
         </div>
 
         <Card className="mt-6">
-          <CardHeader>
+          <CardHeader className="pb-2">
             <CardTitle className="text-lg">Profile</CardTitle>
           </CardHeader>
           <CardContent>
@@ -443,7 +429,6 @@ const TeamDetails = () => {
                 const whatsapp = p.phone ? p.phone.replace(/\D/g, "") : "";
                 return (
                   <div key={p.id} className="space-y-2">
-                    <div className="font-semibold text-green-800">{p.name}</div>
                     <div>
                       <span className="font-semibold">Email:</span> {p.email || "-"}
                     </div>
@@ -466,6 +451,10 @@ const TeamDetails = () => {
                   </div>
                 );
               })}
+            </div>
+            <div className="mt-4">
+              <span className="font-semibold">Match frequency:</span>{" "}
+              {membership?.match_frequency ?? "-"}
             </div>
           </CardContent>
         </Card>
@@ -536,7 +525,9 @@ const TeamDetails = () => {
                   >
                     <div className="flex items-center gap-3">
                       <Badge className="bg-yellow-100 text-yellow-800">
-                        {match.status === "pending" ? "Pending" : "Accepted"}
+                        {(match.status || "").toLowerCase() === "scheduled"
+                          ? "Scheduled"
+                          : "Pending"}
                       </Badge>
                       <span>vs {getOpponentName(match)}</span>
                     </div>

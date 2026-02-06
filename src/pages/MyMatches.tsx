@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Trophy } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Player } from "@/types/Player";
 import { Challenge } from "@/types/Challenge";
 import { PendingMatches } from "@/components/PendingMatches";
@@ -18,14 +18,12 @@ import {
 } from "@/components/ui/select";
 
 const MyMatches = () => {
-  const location = useLocation();
-  const state = location.state as { currentUser: Player; challenges: Challenge[]; players: Player[] } | null;
   const { toast } = useToast();
 
-  const [currentUser, setCurrentUser] = useState<Player | null>(state?.currentUser ?? null);
-  const [players, setPlayers] = useState<Player[]>(state?.players ?? []);
-  const [challenges, setChallenges] = useState<Challenge[]>(state?.challenges ?? []);
-  const [isLoading, setIsLoading] = useState(!state);
+  const [currentUser, setCurrentUser] = useState<Player | null>(null);
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [challenges, setChallenges] = useState<Challenge[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [ladders, setLadders] = useState<Array<{ id: string; name: string | null; type: string }>>([]);
   const [laddersLoading, setLaddersLoading] = useState(false);
   const [selectedLadderId, setSelectedLadderId] = useState<string>("");
@@ -33,13 +31,14 @@ const MyMatches = () => {
   const [ladderPartnerMap, setLadderPartnerMap] = useState<Record<string, string | null>>({});
   const [ladderPrimaryMap, setLadderPrimaryMap] = useState<Record<string, string>>({});
   const [ladderRankMap, setLadderRankMap] = useState<Record<string, number>>({});
+  const [ladderMembershipIdMap, setLadderMembershipIdMap] = useState<Record<string, string>>({});
 
   const formatLadderName = (name?: string | null, fallback?: string) => {
     if (!name) return fallback || "Ladder";
     return name.replace(/\s*\((Singles|Doubles)\)\s*/gi, " ").trim();
   };
 
-  // Fetch data if we didn't get it via navigation state
+  // Fetch data from Supabase to ensure we only show public.matches
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -111,10 +110,8 @@ const MyMatches = () => {
       }
     };
 
-    if (!state) {
-      fetchData();
-    }
-  }, [state, toast]);
+    fetchData();
+  }, [toast]);
 
   useEffect(() => {
     const loadUserLadders = async () => {
@@ -188,11 +185,12 @@ const MyMatches = () => {
         setLadderPartnerMap({});
         setLadderPrimaryMap({});
         setLadderRankMap({});
+        setLadderMembershipIdMap({});
         return;
       }
       const { data, error } = await (supabase as any)
         .from("ladder_memberships")
-        .select("player_id,partner_id,rank")
+        .select("id,player_id,partner_id,rank")
         .eq("ladder_id", selectedLadderId);
       if (error) {
         console.error("Error loading ladder players:", error);
@@ -200,6 +198,7 @@ const MyMatches = () => {
         setLadderPartnerMap({});
         setLadderPrimaryMap({});
         setLadderRankMap({});
+        setLadderMembershipIdMap({});
         return;
       }
       const rows = (data as any[] | null) || [];
@@ -207,13 +206,18 @@ const MyMatches = () => {
       const partners: Record<string, string | null> = {};
       const primaries: Record<string, string> = {};
       const ranks: Record<string, number> = {};
+      const membershipIds: Record<string, string> = {};
       rows.forEach((row) => {
         const playerId = row?.player_id;
         const partnerId = row?.partner_id;
+        const membershipId = row?.id;
         if (playerId) {
           ids.add(playerId);
           if (Number.isFinite(row?.rank)) {
             ranks[playerId] = Number(row.rank);
+          }
+          if (membershipId) {
+            membershipIds[playerId] = membershipId;
           }
         }
         if (partnerId) ids.add(partnerId);
@@ -227,12 +231,16 @@ const MyMatches = () => {
           if (Number.isFinite(row?.rank) && ranks[partnerId] === undefined) {
             ranks[partnerId] = Number(row.rank);
           }
+          if (membershipId) {
+            membershipIds[partnerId] = membershipId;
+          }
         }
       });
       setLadderMemberIds(ids);
       setLadderPartnerMap(partners);
       setLadderPrimaryMap(primaries);
       setLadderRankMap(ranks);
+      setLadderMembershipIdMap(membershipIds);
     };
 
     loadLadderMembers();
@@ -354,6 +362,7 @@ const MyMatches = () => {
         return false;
       }
       if (selectedLadderId) {
+        if (c.ladderId !== selectedLadderId) return false;
         return ladderMemberIds.has(c.challengerId) && ladderMemberIds.has(c.challengedId);
       }
       return true;
@@ -440,6 +449,7 @@ const MyMatches = () => {
               primaryByPlayerId={ladderPrimaryMap}
               partnerIdByPlayerId={ladderPartnerMap}
               rankByPlayerId={ladderRankMap}
+              membershipIdByPlayerId={ladderMembershipIdMap}
             />
           </CardContent>
         </Card>

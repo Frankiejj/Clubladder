@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
@@ -22,7 +23,7 @@ export default function Registration() {
   const COOLDOWN_SECONDS = 60;
   const RATE_LIMIT_SECONDS = 180;
   const [sport, setSport] = useState<string>("");
-  const { clubs } = useClubs(sport);
+  const { clubs, loading: clubsLoading } = useClubs(sport);
 
   const [name, setName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -30,6 +31,7 @@ export default function Registration() {
   const [phone, setPhone] = useState("");
   const [countryCode, setCountryCode] = useState("1");
   const [clubId, setClubId] = useState("");
+  const [clubConfirmed, setClubConfirmed] = useState(false);
   const [availableSports, setAvailableSports] = useState<string[]>([]);
   const [sportsLoading, setSportsLoading] = useState(true);
   const [otpSent, setOtpSent] = useState(false);
@@ -105,6 +107,14 @@ export default function Registration() {
       toast({
         title: "Missing information",
         description: "First name, last name, email, country code, phone, sport, and club are required.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (clubId && !clubConfirmed) {
+      toast({
+        title: "Confirmation required",
+        description: "Please confirm you are a member of the selected club.",
         variant: "destructive",
       });
       return;
@@ -422,6 +432,7 @@ export default function Registration() {
                   const selectedSport = value === "none" ? "" : value;
                   setSport(selectedSport);
                   setClubId("");
+                  setClubConfirmed(false);
                 }}
                 disabled={sportsLoading || loading}
               >
@@ -456,22 +467,49 @@ export default function Registration() {
                 onValueChange={(value) => {
                   const chosen = value === "none" ? "" : value;
                   setClubId(chosen);
+                  setClubConfirmed(false);
                 }}
+                disabled={!sport || loading || clubsLoading}
               >
                 <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Select club" />
+                  <SelectValue placeholder={sport ? "Select club" : "Select sport first"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">No club selected</SelectItem>
-                  {clubs.map((club) => (
-                    <SelectItem key={club.id} value={club.id}>
-                      {club.name}
-                      {club.city ? ` (${club.city})` : ""}
+                  {!sport ? (
+                    <SelectItem value="none" disabled>
+                      Select a sport first
                     </SelectItem>
-                  ))}
+                  ) : clubsLoading ? (
+                    <SelectItem value="loading" disabled>
+                      Loading clubs...
+                    </SelectItem>
+                  ) : (
+                    <>
+                      <SelectItem value="none">No club selected</SelectItem>
+                      {clubs.map((club) => (
+                        <SelectItem key={club.id} value={club.id}>
+                          {club.name}
+                          {club.city ? ` (${club.city})` : ""}
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>
+
+            {clubId && (
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="club-confirm"
+                  checked={clubConfirmed}
+                  onCheckedChange={(checked) => setClubConfirmed(Boolean(checked))}
+                />
+                <Label htmlFor="club-confirm" className="text-sm text-gray-700 leading-snug">
+                  I confirm that I am a member of the selected club.
+                </Label>
+              </div>
+            )}
 
 
             {otpSent && (

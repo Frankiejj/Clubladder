@@ -3,6 +3,7 @@ import { ArrowUp, ArrowDown } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Player } from "@/types/Player";
 import { Challenge } from "@/types/Challenge";
+import { Link } from "react-router-dom";
 
 interface PlayerCardProps {
   player: Player;
@@ -16,6 +17,7 @@ interface PlayerCardProps {
   teamAvatarUrl?: string | null;
   selectedLadderId?: string;
   currentRoundLabel?: string | null;
+  membershipIdByPlayerId?: Record<string, string>;
 }
 
 export const PlayerCard = ({
@@ -30,10 +32,15 @@ export const PlayerCard = ({
   teamAvatarUrl,
   selectedLadderId,
   currentRoundLabel,
+  membershipIdByPlayerId,
 }: PlayerCardProps) => {
   const displayName = partnerName ? `${player.name} & ${partnerName}` : player.name;
   const avatarSrc = partnerName ? teamAvatarUrl || undefined : player.avatarUrl || (player as any).avatar_url || undefined;
   const playerRank = typeof player.rank === "number" ? player.rank : null;
+  const membershipId =
+    membershipIdByPlayerId?.[player.id] ??
+    ((player as any)?.membershipId as string | undefined);
+  const playerLink = membershipId ? `/team/${membershipId}` : null;
 
   const calculatePredictedRank = () => {
     if (playerRank === null) return null;
@@ -94,6 +101,17 @@ export const PlayerCard = ({
   };
 
   const predictedRank = calculatePredictedRank();
+  const predictedRankBadge =
+    predictedRank && predictedRank !== playerRank ? (
+      <span className="inline-flex items-center gap-1 text-[10px] sm:text-xs font-semibold text-gray-600">
+        {predictedRank < (playerRank ?? 0) ? (
+          <ArrowUp className="h-3.5 w-3.5 text-green-600" />
+        ) : (
+          <ArrowDown className="h-3.5 w-3.5 text-red-600" />
+        )}
+        #{predictedRank}
+      </span>
+    ) : null;
 
   const getRankColor = (rank: number) => {
     if (rank === 1) return "text-yellow-600";
@@ -113,36 +131,43 @@ export const PlayerCard = ({
           <div className={`font-bold text-base ${getRankColor(playerRank ?? 0)}`}>
             #{playerRank ?? "-"}
           </div>
-          {/* Optional quick next-rank indicator for current user */}
-          {predictedRank && predictedRank !== playerRank && player.id === currentUserId && (
-            <div className="absolute -right-2 -top-2 bg-green-500 text-white rounded-full w-7 h-7 flex items-center justify-center text-[10px] font-bold shadow-md animate-bounce">
-              #{predictedRank}
-            </div>
-          )}
         </div>
 
         {/* Player Info */}
         <div className="flex-1 text-left">
           <div className="flex items-center gap-2 sm:gap-3 mb-1">
-            <Avatar className="h-8 w-8 sm:h-9 sm:w-9">
-              <AvatarImage src={avatarSrc} alt={displayName} />
-              <AvatarFallback className="bg-green-100 text-green-700">
-                {player.name?.[0]?.toUpperCase() || "U"}
-              </AvatarFallback>
-            </Avatar>
-            <h3 className="text-base sm:text-lg font-bold text-gray-800">{displayName}</h3>
-          </div>
-
-          <div className="flex flex-wrap justify-center sm:justify-start items-center gap-x-3 gap-y-2 text-[11px] sm:text-xs text-gray-600">
-            {predictedRank && predictedRank !== playerRank && (
-              <div className="flex items-center gap-1">
-                {predictedRank < (playerRank ?? 0) ? (
-                  <ArrowUp className="h-3.5 w-3.5 text-green-600" />
-                ) : (
-                  <ArrowDown className="h-3.5 w-3.5 text-red-600" />
-                )}
-                <span className="font-semibold">#{predictedRank}</span>
-              </div>
+            {playerLink ? (
+              <Link
+                to={playerLink}
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center gap-2 sm:gap-3 hover:text-green-900"
+              >
+                <Avatar className="h-8 w-8 sm:h-9 sm:w-9">
+                  <AvatarImage src={avatarSrc} alt={displayName} />
+                  <AvatarFallback className="bg-green-100 text-green-700">
+                    {player.name?.[0]?.toUpperCase() || "U"}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-base sm:text-lg font-bold text-gray-800">
+                    {displayName}
+                  </h3>
+                  {predictedRankBadge}
+                </div>
+              </Link>
+            ) : (
+              <>
+                <Avatar className="h-8 w-8 sm:h-9 sm:w-9">
+                  <AvatarImage src={avatarSrc} alt={displayName} />
+                  <AvatarFallback className="bg-green-100 text-green-700">
+                    {player.name?.[0]?.toUpperCase() || "U"}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-base sm:text-lg font-bold text-gray-800">{displayName}</h3>
+                  {predictedRankBadge}
+                </div>
+              </>
             )}
           </div>
         </div>

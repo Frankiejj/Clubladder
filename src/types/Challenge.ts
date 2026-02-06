@@ -11,6 +11,8 @@ export interface Challenge {
   notes?: string | null;
   ladderId?: string | null;
   roundLabel?: string | null;
+  roundStartDate?: string | null;
+  roundEndDate?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
 }

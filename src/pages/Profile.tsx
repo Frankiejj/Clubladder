@@ -329,9 +329,7 @@ const Profile = () => {
                     <Input
                       id="first-name"
                       value={formData.first_name}
-                      onChange={(e) =>
-                        setFormData({ ...formData, first_name: e.target.value })
-                      }
+                      disabled
                       className="mt-1"
                     />
                   </div>
@@ -345,9 +343,7 @@ const Profile = () => {
                     <Input
                       id="last-name"
                       value={formData.last_name}
-                      onChange={(e) =>
-                        setFormData({ ...formData, last_name: e.target.value })
-                      }
+                      disabled
                       className="mt-1"
                     />
                   </div>

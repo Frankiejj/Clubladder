@@ -154,21 +154,25 @@ export const PlayerDetailsModal = ({
       const matchesScope = isSinglesView ? isPlayerMatch : isTeamMatch;
       if (!matchesScope) return false;
 
+      const status = (c.status || "").toLowerCase().trim();
       if (selectedLadderId) {
         const inLadder =
           ladderMemberIds.has(c.challengerId) &&
           ladderMemberIds.has(c.challengedId);
         if (!inLadder) return false;
-        if (isSinglesView) {
-          if (ladderHasPartnerByPlayerId[c.challengerId]) return false;
-          if (ladderHasPartnerByPlayerId[c.challengedId]) return false;
-        } else {
-          if (!ladderHasPartnerByPlayerId[c.challengerId]) return false;
-          if (!ladderHasPartnerByPlayerId[c.challengedId]) return false;
+        // Always allow scheduled matches to show, even if partner data is inconsistent.
+        if (status !== "scheduled") {
+          if (isSinglesView) {
+            if (ladderHasPartnerByPlayerId[c.challengerId]) return false;
+            if (ladderHasPartnerByPlayerId[c.challengedId]) return false;
+          } else {
+            if (!ladderHasPartnerByPlayerId[c.challengerId]) return false;
+            if (!ladderHasPartnerByPlayerId[c.challengedId]) return false;
+          }
         }
-        return c.status === "pending" || c.status === "accepted" || c.status === "scheduled";
+        return status === "pending" || status === "accepted" || status === "scheduled";
       }
-      return c.status === "pending" || c.status === "accepted" || c.status === "scheduled";
+      return status === "pending" || status === "accepted" || status === "scheduled";
     })
     .sort((a, b) => {
       const aDate = a.scheduledDate ? new Date(a.scheduledDate).getTime() : Number.MAX_SAFE_INTEGER;
@@ -465,11 +469,9 @@ export const PlayerDetailsModal = ({
                       <div key={match.id} className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                         <div className="flex items-center gap-3">
                           <Badge className="bg-yellow-100 text-yellow-800">
-                            {match.status === 'pending'
-                              ? 'Pending'
-                              : match.status === 'scheduled'
-                              ? 'Scheduled'
-                              : 'Accepted'}
+                            {(match.status || "").toLowerCase().trim() === "scheduled"
+                              ? "Scheduled"
+                              : "Pending"}
                           </Badge>
                           <span>vs {opponent?.name || `Opponent #${opponentId}`}</span>
                         </div>

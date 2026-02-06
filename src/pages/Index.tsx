@@ -30,6 +30,16 @@ export default function Index() {
     if (!name) return fallback || "Ladder";
     return name.replace(/\s*\((Singles|Doubles)\)\s*/gi, " ").trim();
   };
+  const formatRoundDate = (value?: string | null) => {
+    if (!value) return null;
+    const dt = new Date(value);
+    if (Number.isNaN(dt.getTime())) return null;
+    return dt.toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+    });
+  };
 
   // --------------------------
   // AUTHENTICATION
@@ -145,7 +155,7 @@ export default function Index() {
     const { data, error } = await supabase
       .from("matches")
       .select(
-        "id,ladder_id,round_label,challenger_id,challenged_id,status,scheduled_date,winner_id,score,player1_score,player2_score,notes,created_at,updated_at"
+        "id,ladder_id,round_label,round_start_date,round_end_date,challenger_id,challenged_id,status,scheduled_date,winner_id,score,player1_score,player2_score,notes,created_at,updated_at"
       )
       .order("created_at", { ascending: false });
 
@@ -168,6 +178,8 @@ export default function Index() {
         notes: row.notes,
         ladderId: row.ladder_id ?? null,
         roundLabel: row.round_label ?? null,
+        roundStartDate: row.round_start_date ?? null,
+        roundEndDate: row.round_end_date ?? null,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
       }))
@@ -330,6 +342,18 @@ export default function Index() {
     }).roundLabel as string;
   }, [challenges, selectedLadderId]);
 
+  const currentRoundDates = useMemo(() => {
+    if (!selectedLadderId || !currentRoundLabel) return null;
+    const roundMatches = challenges.filter(
+      (c) => c.ladderId === selectedLadderId && c.roundLabel === currentRoundLabel
+    );
+    if (!roundMatches.length) return null;
+    const start = roundMatches.map((c) => c.roundStartDate).find((d) => !!d) || null;
+    const end = roundMatches.map((c) => c.roundEndDate).find((d) => !!d) || null;
+    if (!start && !end) return null;
+    return { start, end };
+  }, [challenges, selectedLadderId, currentRoundLabel]);
+
   const headerCurrentUser = currentUser || null;
 
   // Redirect super admins to the Super Admin page
@@ -478,6 +502,9 @@ export default function Index() {
           partners[partnerId] = playerId ?? null;
           primaries[partnerId] = playerId ?? partnerId;
           teamAvatars[partnerId] = row?.team_avatar_url ?? null;
+          if (row?.id) {
+            membershipIds[partnerId] = row.id;
+          }
         }
       });
       setLadderPlayerIds(ids);
@@ -607,6 +634,15 @@ export default function Index() {
                 Matches
               </Button>
             </div>
+            {currentRoundDates && (
+              <div className="mt-2 text-xs sm:text-sm text-gray-700 font-semibold">
+                Round {currentRoundLabel}
+                {currentRoundDates.start || currentRoundDates.end ? ": " : ""}
+                {currentRoundDates.start ? formatRoundDate(currentRoundDates.start) : "TBD"}
+                {" – "}
+                {currentRoundDates.end ? formatRoundDate(currentRoundDates.end) : "TBD"}
+              </div>
+            )}
           </CardHeader>
 
           <CardContent>
@@ -627,7 +663,9 @@ export default function Index() {
                       players={rankingPlayers}
                       challenges={challenges}
                       onPlayerClick={(clicked) => {
-                        const membershipId = (clicked as any)?.membershipId as string | undefined;
+                        const membershipId =
+                          (clicked as any)?.membershipId as string | undefined ||
+                          ladderMembershipIdMap[clicked.id];
                         if (membershipId) {
                           navigate(`/team/${membershipId}`);
                           return;
@@ -641,6 +679,7 @@ export default function Index() {
                       teamAvatarUrl={isDoublesLadder ? ladderTeamAvatarMap[player.id] : null}
                       selectedLadderId={selectedLadderId}
                       currentRoundLabel={currentRoundLabel}
+                      membershipIdByPlayerId={ladderMembershipIdMap}
                     />
                   ))
                 )}
@@ -657,8 +696,8 @@ export default function Index() {
                     {showMyMatchesOnly ? "Show all matches" : "Show my matches"}
                   </Button>
                 </div>
-                <PendingMatches
-                  challenges={
+                  <PendingMatches
+                    challenges={
                     showMyMatchesOnly && currentUser
                       ? (() => {
                           const ids = new Set<string>();
@@ -678,15 +717,16 @@ export default function Index() {
                         )
                   }
                   players={players}
-                  onMatchResult={handleMatchResult}
-                  currentUser={currentUser}
-                  isDoublesLadder={isDoublesLadder}
-                  partnerNameByPlayerId={partnerNameByPlayerId}
-                  primaryByPlayerId={ladderPrimaryMap}
-                  partnerIdByPlayerId={ladderPartnerMap}
-                  rankByPlayerId={ladderRankMap}
-                  onScheduleMatch={handleSchedule}
-                />
+                    onMatchResult={handleMatchResult}
+                    currentUser={currentUser}
+                    isDoublesLadder={isDoublesLadder}
+                    partnerNameByPlayerId={partnerNameByPlayerId}
+                    primaryByPlayerId={ladderPrimaryMap}
+                    partnerIdByPlayerId={ladderPartnerMap}
+                    rankByPlayerId={ladderRankMap}
+                    membershipIdByPlayerId={ladderMembershipIdMap}
+                    onScheduleMatch={handleSchedule}
+                  />
               </>
             )}
           </CardContent>

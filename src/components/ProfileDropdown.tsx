@@ -150,7 +150,7 @@ export const ProfileDropdown = () => {
               className="flex items-center gap-2 cursor-pointer"
             >
               <ListOrdered className="mr-2 h-4 w-4" />
-              My Ladder
+              My Ladders
             </DropdownMenuItem>
             <DropdownMenuItem
               onSelect={(e) => {
@@ -203,7 +203,7 @@ export const ProfileDropdown = () => {
               className="flex items-center gap-2 cursor-pointer"
             >
               <ListOrdered className="mr-2 h-4 w-4" />
-              My Ladder
+              My Ladders
             </DropdownMenuItem>
             <DropdownMenuItem
               onSelect={(e) => {
