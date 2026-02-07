@@ -328,11 +328,11 @@ export default function Registration() {
 
     toast({
       title: "Registration complete",
-      description: "You're verified. You can join a ladder later.",
+      description: "You're verified. You can join a ladder now.",
     });
 
     setLoading(false);
-    navigate("/");
+    navigate("/my-ladder");
   };
 
   return (
