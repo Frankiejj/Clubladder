@@ -40,59 +40,6 @@ export default function Index() {
       day: "2-digit",
     });
   };
-  const getNextAmsterdamRoundStart = () => {
-    try {
-      const timeZone = "Europe/Amsterdam";
-      const now = new Date();
-      const parts = new Intl.DateTimeFormat("en-US", {
-        timeZone,
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        weekday: "short",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      }).formatToParts(now);
-      const map: Record<string, string> = {};
-      parts.forEach((p) => {
-        if (p.type !== "literal") map[p.type] = p.value;
-      });
-      const year = Number(map.year);
-      const month = Number(map.month);
-      const day = Number(map.day);
-      const hour = Number(map.hour);
-      const minute = Number(map.minute);
-      const weekday = map.weekday;
-      const weekdayIndex: Record<string, number> = {
-        Mon: 0,
-        Tue: 1,
-        Wed: 2,
-        Thu: 3,
-        Fri: 4,
-        Sat: 5,
-        Sun: 6,
-      };
-      const currentIdx = weekdayIndex[weekday] ?? 0;
-      let daysUntil = (7 - currentIdx) % 7;
-      if (daysUntil === 0) {
-        if (hour > 8 || (hour === 8 && minute >= 0)) {
-          daysUntil = 7;
-        }
-      }
-      const base = new Date(Date.UTC(year, month - 1, day));
-      base.setUTCDate(base.getUTCDate() + daysUntil);
-      const nextYear = base.getUTCFullYear();
-      const nextMonth = base.getUTCMonth();
-      const nextDay = base.getUTCDate();
-      const yyyy = String(nextYear);
-      const mm = String(nextMonth + 1).padStart(2, "0");
-      const dd = String(nextDay).padStart(2, "0");
-      return `${yyyy}-${mm}-${dd} at 08:00`;
-    } catch {
-      return "YYYY-MM-DD at 08:00";
-    }
-  };
 
   // --------------------------
   // AUTHENTICATION
@@ -407,8 +354,6 @@ export default function Index() {
     return { start, end };
   }, [challenges, selectedLadderId, currentRoundLabel]);
 
-  const nextRoundStartLabel = useMemo(() => getNextAmsterdamRoundStart(), []);
-
   const headerCurrentUser = currentUser || null;
 
   // Redirect super admins to the Super Admin page
@@ -698,9 +643,6 @@ export default function Index() {
                 {currentRoundDates.end ? formatRoundDate(currentRoundDates.end) : "TBD"}
               </div>
             )}
-            <div className="mt-2 text-sm sm:text-base text-gray-800 font-bold">
-              Next round starts: {nextRoundStartLabel}
-            </div>
           </CardHeader>
 
           <CardContent>
