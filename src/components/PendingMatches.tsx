@@ -10,7 +10,6 @@ import { Player } from "@/types/Player";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Calendar } from "@/components/ui/calendar";
 import { useNavigate } from "react-router-dom";
 
 interface PendingMatchesProps {
@@ -61,6 +60,24 @@ export const PendingMatches = ({
     const dt = new Date(dateString);
     const now = new Date();
     return dt.getUTCFullYear() === now.getUTCFullYear() && dt.getUTCMonth() === now.getUTCMonth();
+  };
+
+  const formatDateInput = (date?: Date) => {
+    if (!date) return "";
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const parseDateInput = (value: string) => {
+    if (!value) return undefined;
+    const [year, month, day] = value.split("-").map(Number);
+    if (!year || !month || !day) return undefined;
+    const dt = new Date();
+    dt.setFullYear(year, month - 1, day);
+    dt.setHours(0, 0, 0, 0);
+    return dt;
   };
   
   const filteredChallenges = challenges;
@@ -171,10 +188,23 @@ export const PendingMatches = ({
     const challengerRank = rankByPlayerId?.[challenger.id] ?? challenger.rank ?? 0;
     const challengedRank = rankByPlayerId?.[challenged.id] ?? challenged.rank ?? 0;
 
-    if (winnerId === challenge.challengerId && challengerRank > challengedRank) {
-      return `${challengerName} moves to rank #${challengedRank}`;
-    } else if (winnerId === challenge.challengedId) {
-      return `${challengedName} defends rank #${challengedRank}`;
+    if (winnerId === challenge.challengerId) {
+      if (challengerRank < challengedRank) {
+        return `${challengerName} defends place #${challengerRank}`;
+      }
+      if (challengerRank > challengedRank) {
+        return `${challengerName} climbs to #${challengedRank}`;
+      }
+      return "No rank change";
+    }
+    if (winnerId === challenge.challengedId) {
+      if (challengedRank < challengerRank) {
+        return `${challengedName} defends place #${challengedRank}`;
+      }
+      if (challengedRank > challengerRank) {
+        return `${challengedName} climbs to #${challengerRank}`;
+      }
+      return "No rank change";
     }
     return "No rank change";
   };
@@ -189,12 +219,6 @@ export const PendingMatches = ({
     const challengedPhone = challenged.phone ? challenged.phone.replace(/\D/g, "") : "";
     const challengerRank = rankByPlayerId?.[challenger.id] ?? challenger.rank ?? 0;
     const challengedRank = rankByPlayerId?.[challenged.id] ?? challenged.rank ?? 0;
-
-    const opponent = currentUser
-      ? currentUser.id === challenge.challengerId
-        ? challenged
-        : challenger
-      : null;
 
     const isCompleted = challenge.status === 'completed';
     const winner = challenge.winnerId ? players.find(p => p.id === challenge.winnerId) : null;
@@ -212,9 +236,35 @@ export const PendingMatches = ({
         } rounded-lg border space-y-4 overflow-hidden`}
       >
         <div className="grid grid-cols-3 items-start gap-4">
-          <div className="text-center">
+          <div className="text-center flex flex-col items-center min-w-0">
             <div
-              className={`font-semibold text-green-800 flex flex-wrap items-center justify-center gap-2 min-w-0 ${
+              className={
+                membershipIdByPlayerId?.[challenger.id]
+                  ? "cursor-pointer"
+                  : undefined
+              }
+              onClick={() => handlePlayerClick(challenger.id)}
+              role={membershipIdByPlayerId?.[challenger.id] ? "button" : undefined}
+              tabIndex={membershipIdByPlayerId?.[challenger.id] ? 0 : undefined}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  handlePlayerClick(challenger.id);
+                }
+              }}
+            >
+              <Avatar className="h-10 w-10">
+                <AvatarImage
+                  src={challenger.avatarUrl || (challenger as any).avatar_url || undefined}
+                  alt={getDisplayName(challenger)}
+                />
+                <AvatarFallback className="bg-green-100 text-green-700">
+                  {challenger.name?.[0]?.toUpperCase() || "U"}
+                </AvatarFallback>
+              </Avatar>
+            </div>
+            <div
+              className={`mt-1 font-semibold text-green-800 flex items-center justify-center gap-2 min-w-0 ${
                 membershipIdByPlayerId?.[challenger.id] ? "cursor-pointer hover:text-green-900" : ""
               }`}
               onClick={() => handlePlayerClick(challenger.id)}
@@ -227,26 +277,20 @@ export const PendingMatches = ({
                 }
               }}
             >
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={challenger.avatarUrl || (challenger as any).avatar_url || undefined} alt={getDisplayName(challenger)} />
-                  <AvatarFallback className="bg-green-100 text-green-700">
-                    {challenger.name?.[0]?.toUpperCase() || "U"}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="break-words">{getDisplayName(challenger)}</span>
-                {challengerPhone && (
-                  <button
-                    className="text-green-700 hover:text-green-800 shrink-0"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const msg = `Hi ${challenger.name}, let's schedule our ladder match: ${getDisplayName(challenger)} vs ${getDisplayName(challenged)}.`;
-                      window.open(`https://wa.me/${challengerPhone}?text=${encodeURIComponent(msg)}`, "_blank");
-                    }}
-                    aria-label={`Chat ${challenger.name} on WhatsApp`}
-                  >
-                    <MessageCircle className="h-4 w-4" />
-                  </button>
-                )}
+              <span className="break-words">{getDisplayName(challenger)}</span>
+              {challengerPhone && (
+                <button
+                  className="text-green-700 hover:text-green-800 shrink-0"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const msg = `Hi ${challenger.name}, let's schedule our ladder match: ${getDisplayName(challenger)} vs ${getDisplayName(challenged)}.`;
+                    window.open(`https://wa.me/${challengerPhone}?text=${encodeURIComponent(msg)}`, "_blank");
+                  }}
+                  aria-label={`Chat ${challenger.name} on WhatsApp`}
+                >
+                  <MessageCircle className="h-4 w-4" />
+                </button>
+              )}
             </div>
             <div className="text-xs sm:text-sm text-gray-600">Rank #{challengerRank}</div>
           </div>
@@ -319,9 +363,35 @@ export const PendingMatches = ({
             )}
           </div>
 
-          <div className="text-center">
+          <div className="text-center flex flex-col items-center min-w-0">
             <div
-              className={`font-semibold text-green-800 flex flex-wrap items-center justify-center gap-2 min-w-0 ${
+              className={
+                membershipIdByPlayerId?.[challenged.id]
+                  ? "cursor-pointer"
+                  : undefined
+              }
+              onClick={() => handlePlayerClick(challenged.id)}
+              role={membershipIdByPlayerId?.[challenged.id] ? "button" : undefined}
+              tabIndex={membershipIdByPlayerId?.[challenged.id] ? 0 : undefined}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  handlePlayerClick(challenged.id);
+                }
+              }}
+            >
+              <Avatar className="h-10 w-10">
+                <AvatarImage
+                  src={challenged.avatarUrl || (challenged as any).avatar_url || undefined}
+                  alt={getDisplayName(challenged)}
+                />
+                <AvatarFallback className="bg-green-100 text-green-700">
+                  {challenged.name?.[0]?.toUpperCase() || "U"}
+                </AvatarFallback>
+              </Avatar>
+            </div>
+            <div
+              className={`mt-1 font-semibold text-green-800 flex items-center justify-center gap-2 min-w-0 ${
                 membershipIdByPlayerId?.[challenged.id] ? "cursor-pointer hover:text-green-900" : ""
               }`}
               onClick={() => handlePlayerClick(challenged.id)}
@@ -334,26 +404,20 @@ export const PendingMatches = ({
                 }
               }}
             >
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={challenged.avatarUrl || (challenged as any).avatar_url || undefined} alt={getDisplayName(challenged)} />
-                  <AvatarFallback className="bg-green-100 text-green-700">
-                    {challenged.name?.[0]?.toUpperCase() || "U"}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="break-words">{getDisplayName(challenged)}</span>
-                {challengedPhone && (
-                  <button
-                    className="text-green-700 hover:text-green-800 shrink-0"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const msg = `Hi ${challenged.name}, let's schedule our ladder match: ${getDisplayName(challenger)} vs ${getDisplayName(challenged)}.`;
-                      window.open(`https://wa.me/${challengedPhone}?text=${encodeURIComponent(msg)}`, "_blank");
-                    }}
-                    aria-label={`Chat ${challenged.name} on WhatsApp`}
-                  >
-                    <MessageCircle className="h-4 w-4" />
-                  </button>
-                )}
+              <span className="break-words">{getDisplayName(challenged)}</span>
+              {challengedPhone && (
+                <button
+                  className="text-green-700 hover:text-green-800 shrink-0"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const msg = `Hi ${challenged.name}, let's schedule our ladder match: ${getDisplayName(challenger)} vs ${getDisplayName(challenged)}.`;
+                    window.open(`https://wa.me/${challengedPhone}?text=${encodeURIComponent(msg)}`, "_blank");
+                  }}
+                  aria-label={`Chat ${challenged.name} on WhatsApp`}
+                >
+                  <MessageCircle className="h-4 w-4" />
+                </button>
+              )}
             </div>
             <div className="text-xs sm:text-sm text-gray-600">Rank #{challengedRank}</div>
           </div>
@@ -365,51 +429,26 @@ export const PendingMatches = ({
 
         {!isCompleted && onScheduleMatch && isMatchParticipant(challenge) && (
           <div className="border-t pt-4 bg-white p-4 rounded-lg flex flex-col gap-3 max-w-full">
-            <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-700">
-              <button
-                type="button"
-                className="flex items-center gap-2 hover:text-green-700"
-                onClick={() => {
-                  setOpenScheduler((prev) => ({ ...prev, [challenge.id]: true }));
-                  setScheduleValues((prev) => {
-                    if (prev[challenge.id]?.date && prev[challenge.id]?.time) return prev;
+              {!openScheduler[challenge.id] ? (
+                <Button
+                  variant="default"
+                  onClick={() => {
+                    setOpenScheduler((prev) => ({ ...prev, [challenge.id]: true }));
+                    setScheduleValues((prev) => {
+                      if (prev[challenge.id]?.date && prev[challenge.id]?.time) return prev;
                     const now = new Date();
                     const hh = String(now.getHours()).padStart(2, "0");
                     const mm = String(now.getMinutes()).padStart(2, "0");
                     return {
                       ...prev,
                       [challenge.id]: { date: now, time: `${hh}:${mm}` },
-                    };
-                  });
-                }}
-                aria-label="Open calendar"
-              >
-                <CalendarIcon className="h-4 w-4" />
-                <span>
-                  {challenge.status === "scheduled" ? "Reschedule this match" : "Schedule this match"}
-                </span>
-              </button>
-            </div>
-            {!openScheduler[challenge.id] ? (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setOpenScheduler((prev) => ({ ...prev, [challenge.id]: true }));
-                  setScheduleValues((prev) => {
-                    if (prev[challenge.id]?.date && prev[challenge.id]?.time) return prev;
-                    const now = new Date();
-                    const hh = String(now.getHours()).padStart(2, "0");
-                    const mm = String(now.getMinutes()).padStart(2, "0");
-                    return {
-                      ...prev,
-                      [challenge.id]: { date: now, time: `${hh}:${mm}` },
-                    };
-                  });
-                }}
-                className="w-full sm:w-auto text-xs sm:text-sm"
-              >
-                {challenge.status === "scheduled" ? "Reschedule" : "Schedule match"}
-              </Button>
+                      };
+                    });
+                  }}
+                  className="w-full sm:w-auto text-xs sm:text-sm bg-green-600 hover:bg-green-700 text-white"
+                >
+                  {challenge.status === "scheduled" ? "Reschedule" : "Schedule match"}
+                </Button>
             ) : (
               <div className="w-full max-w-full">
                 <div className="flex items-center justify-between mb-2">
@@ -430,44 +469,40 @@ export const PendingMatches = ({
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
-                <div className="flex flex-col gap-3 items-stretch max-w-full">
-                  <Calendar
-                    mode="single"
-                    selected={scheduleValues[challenge.id]?.date}
-                    onSelect={(date) =>
-                      setScheduleValues((prev) => ({
-                        ...prev,
-                        [challenge.id]: {
-                          ...prev[challenge.id],
-                          date: date ?? prev[challenge.id]?.date,
-                        },
-                      }))
-                    }
-                    className="rounded-md border-[3px] border-gray-300 w-full max-w-full mx-auto p-2 overflow-hidden"
-                    classNames={{
-                      table: "w-full border-collapse",
-                      head_cell: "text-muted-foreground rounded-md w-8 font-normal text-[0.65rem]",
-                      cell: "h-8 w-8 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
-                      day: "h-8 w-8 p-0 text-[0.65rem] font-normal aria-selected:opacity-100",
-                    }}
-                  />
                   <div className="flex flex-col gap-2 w-full min-w-0">
-                    <Input
-                      type="time"
-                      value={scheduleValues[challenge.id]?.time || ""}
-                      onChange={(e) =>
-                        setScheduleValues((prev) => ({
-                          ...prev,
-                          [challenge.id]: {
-                            ...prev[challenge.id],
-                            time: e.target.value,
-                          },
-                        }))
-                      }
-                      className="w-[12rem] max-w-full mx-auto text-xs sm:text-sm font-semibold"
-                    />
+                    <div className="w-[16rem] max-w-full mx-auto min-w-0 box-border flex items-center gap-2">
+                      <Input
+                        type="date"
+                        value={formatDateInput(scheduleValues[challenge.id]?.date)}
+                        onChange={(e) => {
+                          const nextDate = parseDateInput(e.target.value);
+                          setScheduleValues((prev) => ({
+                            ...prev,
+                            [challenge.id]: {
+                              ...prev[challenge.id],
+                              date: nextDate ?? prev[challenge.id]?.date,
+                            },
+                          }));
+                        }}
+                        className="flex-1 min-w-0 text-xs sm:text-sm"
+                      />
+                      <Input
+                        type="time"
+                        value={scheduleValues[challenge.id]?.time || ""}
+                        onChange={(e) =>
+                          setScheduleValues((prev) => ({
+                            ...prev,
+                            [challenge.id]: {
+                              ...prev[challenge.id],
+                              time: e.target.value,
+                            },
+                          }))
+                        }
+                        className="flex-1 min-w-0 text-xs sm:text-sm font-semibold"
+                      />
+                    </div>
                     <Button
-                      variant="secondary"
+                      variant="default"
                       disabled={!scheduleValues[challenge.id]?.date || !scheduleValues[challenge.id]?.time}
                       onClick={() => {
                         const date = scheduleValues[challenge.id]?.date;
@@ -476,25 +511,16 @@ export const PendingMatches = ({
                         const [hours, minutes] = time.split(":").map(Number);
                         const composed = new Date(date);
                         composed.setHours(hours || 0, minutes || 0, 0, 0);
-                        // Keep local time (avoid UTC shift) by removing timezone offset
-                        const adjusted = new Date(
-                          composed.getTime() - composed.getTimezoneOffset() * 60000
-                        );
-                        const localIsoMinute = adjusted.toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM
-                        onScheduleMatch(challenge.id, localIsoMinute);
+                        // Store as UTC ISO so it round-trips without a +1h shift.
+                        const utcIso = composed.toISOString();
+                        onScheduleMatch(challenge.id, utcIso);
                       }}
-                      className="w-full max-w-[16rem] mx-auto text-xs sm:text-sm bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      className="w-[16rem] max-w-full mx-auto text-xs sm:text-sm bg-green-600 text-white hover:bg-green-700"
                     >
                       Set date
                     </Button>
-                    {challenge.scheduledDate && (
-                      <span className="text-xs sm:text-sm text-gray-600">
-                        Current: {formatLocalDateTime(challenge.scheduledDate)}
-                      </span>
-                    )}
                   </div>
                 </div>
-              </div>
             )}
           </div>
         )}
