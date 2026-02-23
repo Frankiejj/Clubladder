@@ -111,7 +111,7 @@ export const PendingMatches = ({
   const completedRoundLabels = useMemo(() => {
     const labels = Array.from(
       new Set(
-        completedChallenges
+        filteredChallenges
           .map((c) => c.roundLabel)
           .filter((label): label is string => !!label)
       )
@@ -123,7 +123,7 @@ export const PendingMatches = ({
       if (pb.round !== pa.round) return pb.round - pa.round;
       return b.localeCompare(a);
     });
-  }, [completedChallenges]);
+  }, [filteredChallenges]);
 
   const [selectedCompletedRound, setSelectedCompletedRound] = useState<string>("");
 
@@ -138,9 +138,9 @@ export const PendingMatches = ({
   }, [completedRoundLabels, selectedCompletedRound]);
 
   const completedChallengesForRound = useMemo(() => {
-    if (!completedRoundLabels.length || !selectedCompletedRound) return completedChallenges;
+    if (!selectedCompletedRound) return completedChallenges;
     return completedChallenges.filter((c) => c.roundLabel === selectedCompletedRound);
-  }, [completedChallenges, completedRoundLabels.length, selectedCompletedRound]);
+  }, [completedChallenges, selectedCompletedRound]);
 
   const formatLocalDateTime = (dateString?: string | null) => {
     if (!dateString) return "";
@@ -687,7 +687,7 @@ export const PendingMatches = ({
         </TabsContent>
 
         <TabsContent value="completed" className="mt-6">
-          {completedChallenges.length === 0 ? (
+          {completedChallenges.length === 0 && completedRoundLabels.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               <Trophy className="h-12 w-12 mx-auto mb-4 text-gray-300" />
               <p className="text-lg">No completed matches yet</p>

@@ -236,9 +236,16 @@ serve(async (req) => {
     const teamAName = getTeamName(challengerId);
     const teamBName = getTeamName(challengedId);
     const scheduledAt = new Date(matchRow.scheduled_date);
-    const scheduledLabel = Number.isNaN(scheduledAt.getTime())
-      ? matchRow.scheduled_date
-      : `${scheduledAt.toISOString().replace("T", " ").slice(0, 16)} UTC`;
+    const scheduledLabel = (() => {
+      if (Number.isNaN(scheduledAt.getTime())) return matchRow.scheduled_date;
+      const plusOneHour = new Date(scheduledAt.getTime() + 60 * 60 * 1000);
+      const year = plusOneHour.getUTCFullYear();
+      const month = String(plusOneHour.getUTCMonth() + 1).padStart(2, "0");
+      const day = String(plusOneHour.getUTCDate()).padStart(2, "0");
+      const hours = String(plusOneHour.getUTCHours()).padStart(2, "0");
+      const minutes = String(plusOneHour.getUTCMinutes()).padStart(2, "0");
+      return `${year}-${month}-${day} ${hours}:${minutes}`;
+    })();
 
     const subject = `Match scheduled: ${teamAName} vs ${teamBName}`;
     let sent = 0;
@@ -248,7 +255,6 @@ serve(async (req) => {
       const recipient = playerById[recipientId];
       if (!recipient?.email) continue;
 
-      const opponent = teamAPlayers.includes(recipientId) ? teamBName : teamAName;
       const roundPart = matchRow.round_label ? ` | ${matchRow.round_label}` : "";
       const html = `
         <div style="font-family: Arial, sans-serif; line-height: 1.5;">
@@ -256,12 +262,11 @@ serve(async (req) => {
           <p>Your match has been scheduled.</p>
           <p><strong>${teamAName}</strong> vs <strong>${teamBName}</strong></p>
           <p>Ladder: ${ladderName}${roundPart}</p>
-          <p>Opponent: <strong>${opponent}</strong></p>
           <p>When: <strong>${scheduledLabel}</strong></p>
           <p>You can reschedule or update the score in SportsLadder.</p>
         </div>
       `;
-      const text = `Hi ${recipient.name || "there"},\n\nYour match has been scheduled.\n${teamAName} vs ${teamBName}\nLadder: ${ladderName}${roundPart}\nOpponent: ${opponent}\nWhen: ${scheduledLabel}\n\nYou can reschedule or update the score in SportsLadder.`;
+      const text = `Hi ${recipient.name || "there"},\n\nYour match has been scheduled.\n${teamAName} vs ${teamBName}\nLadder: ${ladderName}${roundPart}\nWhen: ${scheduledLabel}\n\nYou can reschedule or update the score in SportsLadder.`;
 
       const sendResult = await postResendEmail(resendApiKey, {
         from: resendFrom,
@@ -500,6 +505,7 @@ serve(async (req) => {
         <p>Here are your pending matches:</p>
         <ul>${listItems}</ul>
         <p>Please schedule your matches in the SportsLadder app.</p>
+        <p>Please (re)schedule or fill in the score before Monday 8:00.</p>
       </div>
     `;
 
@@ -511,7 +517,7 @@ serve(async (req) => {
           item.roundLabel ? ` | ${item.roundLabel}` : ""
         } | ${statusLabel}${when})`;
       })
-      .join("\n")}\n\nPlease schedule your matches in the SportsLadder app.`;
+      .join("\n")}\n\nPlease schedule your matches in the SportsLadder app.\nPlease (re)schedule or fill in the score before Monday 8:00.`;
 
     const sendResult = await postResendEmail(resendApiKey, {
       from: resendFrom,
