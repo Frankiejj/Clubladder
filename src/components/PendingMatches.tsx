@@ -4,10 +4,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Clock, Swords, Trophy, CheckCircle, Calendar as CalendarIcon, MessageCircle, X } from "lucide-react";
 import { Challenge } from "@/types/Challenge";
 import { Player } from "@/types/Player";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useNavigate } from "react-router-dom";
@@ -94,6 +101,46 @@ export const PendingMatches = ({
       return aDate - bDate;
     });
   const completedChallenges = filteredChallenges.filter(c => c.status === 'completed');
+
+  const parseRoundLabel = (label: string) => {
+    const match = label.match(/^(\d{4})-R(\d+)$/);
+    if (!match) return { year: 0, round: 0 };
+    return { year: Number(match[1]), round: Number(match[2]) };
+  };
+
+  const completedRoundLabels = useMemo(() => {
+    const labels = Array.from(
+      new Set(
+        completedChallenges
+          .map((c) => c.roundLabel)
+          .filter((label): label is string => !!label)
+      )
+    );
+    return labels.sort((a, b) => {
+      const pa = parseRoundLabel(a);
+      const pb = parseRoundLabel(b);
+      if (pb.year !== pa.year) return pb.year - pa.year;
+      if (pb.round !== pa.round) return pb.round - pa.round;
+      return b.localeCompare(a);
+    });
+  }, [completedChallenges]);
+
+  const [selectedCompletedRound, setSelectedCompletedRound] = useState<string>("");
+
+  useEffect(() => {
+    if (!completedRoundLabels.length) {
+      if (selectedCompletedRound) setSelectedCompletedRound("");
+      return;
+    }
+    if (!selectedCompletedRound || !completedRoundLabels.includes(selectedCompletedRound)) {
+      setSelectedCompletedRound(completedRoundLabels[0]);
+    }
+  }, [completedRoundLabels, selectedCompletedRound]);
+
+  const completedChallengesForRound = useMemo(() => {
+    if (!completedRoundLabels.length || !selectedCompletedRound) return completedChallenges;
+    return completedChallenges.filter((c) => c.roundLabel === selectedCompletedRound);
+  }, [completedChallenges, completedRoundLabels.length, selectedCompletedRound]);
 
   const formatLocalDateTime = (dateString?: string | null) => {
     if (!dateString) return "";
@@ -470,37 +517,35 @@ export const PendingMatches = ({
                   </Button>
                 </div>
                   <div className="flex flex-col gap-2 w-full min-w-0">
-                    <div className="w-[16rem] max-w-full mx-auto min-w-0 box-border flex items-center gap-2">
-                      <Input
-                        type="date"
-                        value={formatDateInput(scheduleValues[challenge.id]?.date)}
-                        onChange={(e) => {
-                          const nextDate = parseDateInput(e.target.value);
-                          setScheduleValues((prev) => ({
-                            ...prev,
-                            [challenge.id]: {
-                              ...prev[challenge.id],
-                              date: nextDate ?? prev[challenge.id]?.date,
-                            },
-                          }));
-                        }}
-                        className="flex-1 min-w-0 text-xs sm:text-sm"
-                      />
-                      <Input
-                        type="time"
-                        value={scheduleValues[challenge.id]?.time || ""}
-                        onChange={(e) =>
-                          setScheduleValues((prev) => ({
-                            ...prev,
-                            [challenge.id]: {
-                              ...prev[challenge.id],
-                              time: e.target.value,
-                            },
-                          }))
-                        }
-                        className="flex-1 min-w-0 text-xs sm:text-sm font-semibold"
-                      />
-                    </div>
+                    <Input
+                      type="date"
+                      value={formatDateInput(scheduleValues[challenge.id]?.date)}
+                      onChange={(e) => {
+                        const nextDate = parseDateInput(e.target.value);
+                        setScheduleValues((prev) => ({
+                          ...prev,
+                          [challenge.id]: {
+                            ...prev[challenge.id],
+                            date: nextDate ?? prev[challenge.id]?.date,
+                          },
+                        }));
+                      }}
+                      className="w-[16rem] max-w-full mx-auto min-w-0 box-border text-xs sm:text-sm font-semibold"
+                    />
+                    <Input
+                      type="time"
+                      value={scheduleValues[challenge.id]?.time || ""}
+                      onChange={(e) =>
+                        setScheduleValues((prev) => ({
+                          ...prev,
+                          [challenge.id]: {
+                            ...prev[challenge.id],
+                            time: e.target.value,
+                          },
+                        }))
+                      }
+                      className="w-[16rem] max-w-full mx-auto min-w-0 box-border text-xs sm:text-sm font-semibold"
+                    />
                     <Button
                       variant="default"
                       disabled={!scheduleValues[challenge.id]?.date || !scheduleValues[challenge.id]?.time}
@@ -650,7 +695,37 @@ export const PendingMatches = ({
             </div>
           ) : (
             <div className="space-y-4">
-              {completedChallenges.map(renderMatch)}
+              {completedRoundLabels.length > 0 && (
+                <div className="w-full sm:w-56">
+                  <Label className="text-xs text-gray-600 mb-1 block">Round</Label>
+                  <Select
+                    value={selectedCompletedRound}
+                    onValueChange={setSelectedCompletedRound}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select round" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {completedRoundLabels.map((label) => (
+                        <SelectItem key={label} value={label}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {completedChallengesForRound.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <Trophy className="h-10 w-10 mx-auto mb-3 text-gray-300" />
+                  <p className="text-sm">No completed matches in this round</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {completedChallengesForRound.map(renderMatch)}
+                </div>
+              )}
             </div>
           )}
         </TabsContent>

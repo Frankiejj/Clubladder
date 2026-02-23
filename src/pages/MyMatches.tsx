@@ -265,6 +265,31 @@ const MyMatches = () => {
       prev.map((m) => (m.id === matchId ? { ...m, scheduledDate: datetimeIso, status: "scheduled" } : m))
     );
 
+    const { data: notifyData, error: notifyError } = await supabase.functions.invoke(
+      "send-pending-round-emails",
+      {
+        body: { mode: "scheduled_match", matchId },
+      }
+    );
+
+    if (notifyError) {
+      toast({
+        title: "Match scheduled",
+        description: "Date saved, but email notification failed.",
+      });
+      console.error("Scheduled match email failed", notifyError);
+      return;
+    }
+
+    if ((notifyData as any)?.ok === false) {
+      toast({
+        title: "Match scheduled",
+        description: "Date saved, but some email notifications failed.",
+      });
+      console.error("Scheduled match email partial failure", notifyData);
+      return;
+    }
+
     toast({
       title: "Match scheduled",
       description: `Date set to ${datetimeIso}`,

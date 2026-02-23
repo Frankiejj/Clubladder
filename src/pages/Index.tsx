@@ -252,6 +252,20 @@ export default function Index() {
     setChallenges((prev) =>
       prev.map((m) => (m.id === matchId ? { ...m, scheduledDate: datetimeIso, status: "scheduled" } : m))
     );
+
+    const { data: notifyData, error: notifyError } = await supabase.functions.invoke(
+      "send-pending-round-emails",
+      {
+        body: { mode: "scheduled_match", matchId },
+      }
+    );
+    if (notifyError) {
+      console.error("Scheduled match email failed", notifyError);
+      return;
+    }
+    if ((notifyData as any)?.ok === false) {
+      console.error("Scheduled match email partial failure", notifyData);
+    }
   };
 
   // --------------------------
