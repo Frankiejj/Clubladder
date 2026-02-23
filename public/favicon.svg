@@ -1,33 +1,50 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <linearGradient id="gold" x1="0" x2="0" y1="0" y2="1">
-      <stop offset="0%" stop-color="#f8d34a"/>
-      <stop offset="100%" stop-color="#c99015"/>
+    <linearGradient id="goldMain" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fff6a3"/>
+      <stop offset="42%" stop-color="#f3c834"/>
+      <stop offset="100%" stop-color="#ae6c00"/>
     </linearGradient>
-    <linearGradient id="goldDark" x1="0" x2="1" y1="0" y2="1">
-      <stop offset="0%" stop-color="#e6b21e"/>
-      <stop offset="100%" stop-color="#a87010"/>
+    <linearGradient id="goldDark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f0c137"/>
+      <stop offset="100%" stop-color="#8c5200"/>
+    </linearGradient>
+    <linearGradient id="ladderBody" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#50545a"/>
+      <stop offset="100%" stop-color="#0d0f13"/>
     </linearGradient>
   </defs>
 
-  <!-- Trophy -->
-  <g transform="translate(0,10)">
-    <rect x="160" y="110" width="192" height="38" rx="10" fill="url(#goldDark)"/>
-    <path d="M176 140c0 90 50 140 80 156 30-16 80-66 80-156V110H176z" fill="url(#gold)"/>
-    <path d="M150 150c-44 0-70 26-70 62 0 36 28 66 78 70 10-6 18-14 24-22-38-6-62-26-62-48 0-22 18-40 46-40h4V150z" fill="url(#goldDark)"/>
-    <path d="M362 150c44 0 70 26 70 62 0 36-28 66-78 70-10-6-18-14-24-22 38-6 62-26 62-48 0-22-18-40-46-40h-4V150z" fill="url(#goldDark)"/>
-    <path d="M230 296h52c0 26-10 46-26 58-16-12-26-32-26-58z" fill="url(#goldDark)"/>
-    <rect x="200" y="352" width="112" height="40" rx="10" fill="url(#goldDark)"/>
-  </g>
+  <ellipse cx="256" cy="455" rx="125" ry="16" fill="#000" opacity="0.12"/>
 
-  <!-- Ladder (left side, leaning up the trophy) -->
-  <g transform="translate(90,80) rotate(-18 0 0)">
-    <rect x="110" y="130" width="16" height="250" rx="6" fill="#2e7d32"/>
-    <rect x="160" y="120" width="16" height="260" rx="6" fill="#2e7d32"/>
-    <rect x="112" y="150" width="64" height="10" rx="4" fill="#388e3c"/>
-    <rect x="112" y="190" width="64" height="10" rx="4" fill="#388e3c"/>
-    <rect x="112" y="230" width="64" height="10" rx="4" fill="#388e3c"/>
-    <rect x="112" y="270" width="64" height="10" rx="4" fill="#388e3c"/>
-    <rect x="112" y="310" width="64" height="10" rx="4" fill="#388e3c"/>
+  <!-- handles -->
+  <path d="M128 152c-26 0-46 20-46 47 0 37 28 63 75 65v-26c-33-2-49-16-49-39 0-13 9-22 22-22h22v-25z" fill="url(#goldDark)"/>
+  <path d="M384 152c26 0 46 20 46 47 0 37-28 63-75 65v-26c33-2 49-16 49-39 0-13-9-22-22-22h-22v-25z" fill="url(#goldDark)"/>
+
+  <!-- cup -->
+  <rect x="156" y="120" width="200" height="30" rx="8" fill="url(#goldDark)"/>
+  <path d="M168 144c0 96 54 151 88 168 34-17 88-72 88-168H168z" fill="url(#goldMain)"/>
+  <path d="M220 312h72c0 32-12 57-36 71-24-14-36-39-36-71z" fill="url(#goldDark)"/>
+  <rect x="188" y="382" width="136" height="38" rx="9" fill="url(#goldDark)"/>
+
+  <!-- ladder centered -->
+  <g>
+    <rect x="217" y="132" width="16" height="276" rx="8" fill="url(#ladderBody)"/>
+    <rect x="279" y="132" width="16" height="276" rx="8" fill="url(#ladderBody)"/>
+
+    <rect x="231" y="160" width="50" height="10" rx="4" fill="#23262b"/>
+    <rect x="231" y="197" width="50" height="10" rx="4" fill="#23262b"/>
+    <rect x="231" y="234" width="50" height="10" rx="4" fill="#23262b"/>
+    <rect x="231" y="271" width="50" height="10" rx="4" fill="#23262b"/>
+    <rect x="231" y="308" width="50" height="10" rx="4" fill="#23262b"/>
+    <rect x="231" y="345" width="50" height="10" rx="4" fill="#23262b"/>
+
+    <!-- simple bolts -->
+    <g fill="#d6d8dc">
+      <circle cx="225" cy="146" r="2.6"/><circle cx="225" cy="187" r="2.6"/><circle cx="225" cy="228" r="2.6"/>
+      <circle cx="225" cy="269" r="2.6"/><circle cx="225" cy="310" r="2.6"/><circle cx="225" cy="351" r="2.6"/>
+      <circle cx="287" cy="146" r="2.6"/><circle cx="287" cy="187" r="2.6"/><circle cx="287" cy="228" r="2.6"/>
+      <circle cx="287" cy="269" r="2.6"/><circle cx="287" cy="310" r="2.6"/><circle cx="287" cy="351" r="2.6"/>
+    </g>
   </g>
 </svg>
