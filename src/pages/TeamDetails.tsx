@@ -342,7 +342,7 @@ const TeamDetails = () => {
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center">
         <Card className="max-w-md">
           <CardContent className="pt-6 text-center">
-            <p className="text-gray-600">Loading team...</p>
+            <p className="text-gray-600">Loading...</p>
           </CardContent>
         </Card>
       </div>
