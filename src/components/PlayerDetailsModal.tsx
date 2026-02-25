@@ -142,6 +142,26 @@ export const PlayerDetailsModal = ({
       return bDate - aDate; // most recent first
     });
 
+  const recentMatches = challenges
+    .filter((c) => {
+      const isTeamMatch =
+        teamIds.has(c.challengerId) || teamIds.has(c.challengedId);
+      return isTeamMatch && (c.status === "completed" || c.status === "not_played");
+    })
+    .sort((a, b) => {
+      const aDate = a.scheduledDate
+        ? new Date(a.scheduledDate).getTime()
+        : a.updatedAt
+        ? new Date(a.updatedAt).getTime()
+        : 0;
+      const bDate = b.scheduledDate
+        ? new Date(b.scheduledDate).getTime()
+        : b.updatedAt
+        ? new Date(b.updatedAt).getTime()
+        : 0;
+      return bDate - aDate; // most recent first
+    });
+
   // Upcoming (pending/accepted/scheduled) matches for this player
   const upcomingMatches = challenges
     .filter((c) => {
@@ -404,11 +424,11 @@ export const PlayerDetailsModal = ({
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {completedMatches.length > 0 ? (
+              {recentMatches.length > 0 ? (
                 <div className="space-y-3">
-                  {completedMatches.map((match) => {
+                  {recentMatches.map((match) => {
                     const isDraw = !match.winnerId;
-                    const isPlayerWinner = match.winnerId === player.id;
+                    const isPlayerWinner = teamIds.has(match.winnerId || "");
                     const opponentId = match.challengerId === player.id ? match.challengedId : match.challengerId;
                     const opponent = players.find((p) => p.id === opponentId);
                     const matchDate = match.scheduledDate
@@ -419,7 +439,9 @@ export const PlayerDetailsModal = ({
                     return (
                       <div key={match.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                         <div className="flex items-center gap-3">
-                          {isDraw ? (
+                          {match.status === "not_played" ? (
+                            <Badge className="bg-gray-100 text-gray-700">Not played</Badge>
+                          ) : isDraw ? (
                             <Badge className="bg-yellow-100 text-yellow-800">Draw</Badge>
                           ) : isPlayerWinner ? (
                             <Badge className="bg-green-100 text-green-800">Win</Badge>
@@ -441,7 +463,7 @@ export const PlayerDetailsModal = ({
               ) : (
                 <div className="text-center py-8 text-gray-500">
                   <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                  <p>No completed matches yet</p>
+                  <p>No recent matches yet</p>
                 </div>
               )}
           </CardContent>

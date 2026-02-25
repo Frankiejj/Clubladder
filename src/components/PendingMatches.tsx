@@ -668,7 +668,7 @@ export const PendingMatches = ({
             Pending Matches ({pendingChallenges.length})
           </TabsTrigger>
           <TabsTrigger value="completed" className="text-xs sm:text-sm">
-            Completed Matches ({completedChallenges.length})
+            Completed Matches ({completedChallengesForRound.length})
           </TabsTrigger>
         </TabsList>
 

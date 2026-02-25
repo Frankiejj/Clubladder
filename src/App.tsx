@@ -19,6 +19,7 @@ import Admin from "./pages/Admin";
 import SuperAdmin from "./pages/SuperAdmin";
 import NotFound from "./pages/NotFound";
 import TeamDetails from "./pages/TeamDetails";
+import Rules from "./pages/Rules";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +40,7 @@ const App = () => (
           <Route path="/profile" element={<Profile />} />
           <Route path="/my-ladder" element={<MyLadder />} />
           <Route path="/my-club" element={<MyClub />} />
+          <Route path="/rules" element={<Rules />} />
           <Route path="/team/:membershipId" element={<TeamDetails />} />
           <Route path="/registration" element={<Registration />} />
           <Route path="/login" element={<Login />} />

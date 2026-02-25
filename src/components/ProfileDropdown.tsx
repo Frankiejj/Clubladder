@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { User, LogOut, Trophy, Building, Shield, ListOrdered, Users } from "lucide-react";
+import { User, LogOut, Trophy, Building, Shield, ListOrdered, Users, BookOpen } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -145,6 +145,16 @@ export const ProfileDropdown = () => {
             <DropdownMenuItem
               onSelect={(e) => {
                 e.preventDefault();
+                navigate("/my-matches");
+              }}
+              className="flex items-center gap-2 cursor-pointer"
+            >
+              <Trophy className="mr-2 h-4 w-4" />
+              My Matches
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault();
                 navigate("/my-ladder");
               }}
               className="flex items-center gap-2 cursor-pointer"
@@ -161,6 +171,16 @@ export const ProfileDropdown = () => {
             >
               <Users className="mr-2 h-4 w-4" />
               My Club
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault();
+                navigate("/rules");
+              }}
+              className="flex items-center gap-2 cursor-pointer"
+            >
+              <BookOpen className="mr-2 h-4 w-4" />
+              Rules
             </DropdownMenuItem>
             <DropdownMenuItem
               onSelect={(e) => {
@@ -198,6 +218,16 @@ export const ProfileDropdown = () => {
             <DropdownMenuItem
               onSelect={(e) => {
                 e.preventDefault();
+                navigate("/my-matches");
+              }}
+              className="flex items-center gap-2 cursor-pointer"
+            >
+              <Trophy className="mr-2 h-4 w-4" />
+              My Matches
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault();
                 navigate("/my-ladder");
               }}
               className="flex items-center gap-2 cursor-pointer"
@@ -218,12 +248,12 @@ export const ProfileDropdown = () => {
             <DropdownMenuItem
               onSelect={(e) => {
                 e.preventDefault();
-                navigate("/my-matches");
+                navigate("/rules");
               }}
               className="flex items-center gap-2 cursor-pointer"
             >
-              <Trophy className="mr-2 h-4 w-4" />
-              My Matches
+              <BookOpen className="mr-2 h-4 w-4" />
+              Rules
             </DropdownMenuItem>
             {profile.isAdmin && (
               <DropdownMenuItem

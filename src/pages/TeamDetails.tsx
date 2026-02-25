@@ -288,6 +288,29 @@ const TeamDetails = () => {
       });
   }, [matches, teamIds, membership?.ladder_id, showMyMatchesOnly, currentUserId]);
 
+  const recentMatches = useMemo(() => {
+    return matches
+      .filter((m) => {
+        const isTeamMatch =
+          teamIds.has(m.challengerId) || teamIds.has(m.challengedId);
+        if (!isTeamMatch) return false;
+        if (membership?.ladder_id && m.ladderId !== membership.ladder_id) return false;
+        if (showMyMatchesOnly && currentUserId) {
+          if (m.challengerId !== currentUserId && m.challengedId !== currentUserId) {
+            return false;
+          }
+        }
+        return m.status === "completed" || m.status === "not_played";
+      })
+      .sort((a, b) => {
+        const aDate = a.scheduledDate || a.updatedAt || a.createdAt;
+        const bDate = b.scheduledDate || b.updatedAt || b.createdAt;
+        const aTime = aDate ? new Date(aDate).getTime() : 0;
+        const bTime = bDate ? new Date(bDate).getTime() : 0;
+        return bTime - aTime;
+      });
+  }, [matches, teamIds, membership?.ladder_id, showMyMatchesOnly, currentUserId]);
+
   const upcomingMatches = useMemo(() => {
     return matches
       .filter((m) => {
@@ -467,9 +490,9 @@ const TeamDetails = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {completedMatches.length > 0 ? (
+            {recentMatches.length > 0 ? (
               <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
-                {completedMatches.slice(0, 10).map((match) => {
+                {recentMatches.slice(0, 10).map((match) => {
                   const isDraw = !match.winnerId;
                   const isTeamWinner = teamIds.has(match.winnerId || "");
                   return (
@@ -478,7 +501,9 @@ const TeamDetails = () => {
                       className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
                     >
                       <div className="flex items-center gap-3">
-                        {isDraw ? (
+                        {match.status === "not_played" ? (
+                          <Badge className="bg-gray-100 text-gray-700">Not played</Badge>
+                        ) : isDraw ? (
                           <Badge className="bg-yellow-100 text-yellow-800">Draw</Badge>
                         ) : isTeamWinner ? (
                           <Badge className="bg-green-100 text-green-800">Win</Badge>
@@ -502,7 +527,7 @@ const TeamDetails = () => {
             ) : (
               <div className="text-center py-8 text-gray-500">
                 <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                <p>No completed matches yet</p>
+                <p>No recent matches yet</p>
               </div>
             )}
           </CardContent>

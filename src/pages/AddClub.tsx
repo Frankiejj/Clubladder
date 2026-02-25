@@ -11,6 +11,13 @@ import { Shield, Plus, Building, ArrowLeft, Save, Trash2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProfileDropdown } from "@/components/ProfileDropdown";
 
+type LadderDraft = {
+  id: string;
+  type: "singles" | "doubles";
+  warm_up_time: number;
+  play_time: number;
+};
+
 const AddClub = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -27,8 +34,8 @@ const AddClub = () => {
   const [phone, setPhone] = useState("");
   const [website, setWebsite] = useState("");
   const [address, setAddress] = useState("");
-  const [newLadders, setNewLadders] = useState<Array<{ id: string; type: "singles" | "doubles" }>>([
-    { id: `${Date.now()}`, type: "singles" },
+  const [newLadders, setNewLadders] = useState<LadderDraft[]>([
+    { id: `${Date.now()}`, type: "singles", warm_up_time: 10, play_time: 60 },
   ]);
 
   const [clubs, setClubs] = useState<any[]>([]);
@@ -38,9 +45,15 @@ const AddClub = () => {
   const [laddersLoading, setLaddersLoading] = useState(false);
   const [selectedLadderId, setSelectedLadderId] = useState("");
   const [addExistingLadderType, setAddExistingLadderType] = useState<"singles" | "doubles">("singles");
+  const [addExistingWarmUpTime, setAddExistingWarmUpTime] = useState(10);
+  const [addExistingPlayTime, setAddExistingPlayTime] = useState(60);
   const [ladderEditType, setLadderEditType] = useState<"singles" | "doubles">("singles");
   const [ladderSaving, setLadderSaving] = useState(false);
   const [ladderDeleting, setLadderDeleting] = useState(false);
+  const [savingLadderTimingId, setSavingLadderTimingId] = useState<string | null>(null);
+  const [ladderTimingsById, setLadderTimingsById] = useState<
+    Record<string, { warm_up_time: number; play_time: number }>
+  >({});
 
   const buildLadderName = (clubName: string, type: "singles" | "doubles") =>
     `${clubName} (${type === "singles" ? "Singles" : "Doubles"})`;
@@ -97,6 +110,7 @@ const AddClub = () => {
   const fetchLadders = async (clubId: string) => {
     if (!clubId) {
       setClubLadders([]);
+      setLadderTimingsById({});
       setSelectedLadderId("");
       setLadderEditType("singles");
       return;
@@ -115,8 +129,21 @@ const AddClub = () => {
         variant: "destructive",
       });
       setClubLadders([]);
+      setLadderTimingsById({});
     } else {
-      setClubLadders(data || []);
+      const rows = data || [];
+      setClubLadders(rows);
+      const timingMap = rows.reduce<Record<string, { warm_up_time: number; play_time: number }>>(
+        (acc, row) => {
+          acc[row.id] = {
+            warm_up_time: Number.isFinite(row.warm_up_time) ? Number(row.warm_up_time) : 10,
+            play_time: Number.isFinite(row.play_time) ? Number(row.play_time) : 60,
+          };
+          return acc;
+        },
+        {}
+      );
+      setLadderTimingsById(timingMap);
     }
     setLaddersLoading(false);
   };
@@ -175,6 +202,8 @@ const AddClub = () => {
         type: l.type,
         sport: sport.trim(),
         is_active: true,
+        warm_up_time: Math.max(0, Number(l.warm_up_time) || 0),
+        play_time: Math.max(1, Number(l.play_time) || 60),
       }));
 
       const { error: ladderError } = await (supabase as any).from("ladders").insert(laddersPayload);
@@ -198,7 +227,7 @@ const AddClub = () => {
         setPhone("");
         setWebsite("");
         setAddress("");
-        setNewLadders([{ id: `${Date.now()}`, type: "singles" }]);
+        setNewLadders([{ id: `${Date.now()}`, type: "singles", warm_up_time: 10, play_time: 60 }]);
       }
     }
 
@@ -307,6 +336,8 @@ const AddClub = () => {
       type: addExistingLadderType,
       sport: sport.trim() || null,
       is_active: true,
+      warm_up_time: Math.max(0, Number(addExistingWarmUpTime) || 0),
+      play_time: Math.max(1, Number(addExistingPlayTime) || 60),
     });
     if (error) {
       toast({
@@ -320,6 +351,8 @@ const AddClub = () => {
         description: ladderLabel,
       });
       setAddExistingLadderType("singles");
+      setAddExistingWarmUpTime(10);
+      setAddExistingPlayTime(60);
       fetchLadders(selectedClubId);
     }
     setLadderSaving(false);
@@ -357,6 +390,37 @@ const AddClub = () => {
       fetchLadders(selectedClubId);
     }
     setLadderDeleting(false);
+  };
+
+  const handleSaveLadderTiming = async (ladderId: string) => {
+    const timing = ladderTimingsById[ladderId];
+    if (!timing) return;
+
+    setSavingLadderTimingId(ladderId);
+    const { error } = await (supabase as any)
+      .from("ladders")
+      .update({
+        warm_up_time: Math.max(0, Number(timing.warm_up_time) || 0),
+        play_time: Math.max(1, Number(timing.play_time) || 60),
+      })
+      .eq("id", ladderId);
+
+    if (error) {
+      toast({
+        title: "Ladder update failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Ladder updated",
+        description: "Warm up and play time saved.",
+      });
+      if (selectedClubId) {
+        fetchLadders(selectedClubId);
+      }
+    }
+    setSavingLadderTimingId(null);
   };
 
   if (pageLoading) {
@@ -463,8 +527,8 @@ const AddClub = () => {
 
                   <div className="space-y-3">
                     {newLadders.map((ladder, idx) => (
-                      <div key={ladder.id} className="flex items-end gap-3">
-                        <div className="flex-1">
+                      <div key={ladder.id} className="grid grid-cols-1 sm:grid-cols-[1fr_180px_180px_auto] items-end gap-3">
+                        <div>
                           <Label>Ladder {idx + 1} type *</Label>
                           <select
                             value={ladder.type}
@@ -480,6 +544,42 @@ const AddClub = () => {
                             <option value="singles">Singles</option>
                             <option value="doubles">Doubles</option>
                           </select>
+                        </div>
+                        <div>
+                          <Label>Warm up (min)</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            step={1}
+                            value={ladder.warm_up_time}
+                            onChange={(e) =>
+                              setNewLadders((prev) =>
+                                prev.map((l) =>
+                                  l.id === ladder.id
+                                    ? { ...l, warm_up_time: Math.max(0, Number(e.target.value) || 0) }
+                                    : l
+                                )
+                              )
+                            }
+                          />
+                        </div>
+                        <div>
+                          <Label>Play (min)</Label>
+                          <Input
+                            type="number"
+                            min={1}
+                            step={1}
+                            value={ladder.play_time}
+                            onChange={(e) =>
+                              setNewLadders((prev) =>
+                                prev.map((l) =>
+                                  l.id === ladder.id
+                                    ? { ...l, play_time: Math.max(1, Number(e.target.value) || 60) }
+                                    : l
+                                )
+                              )
+                            }
+                          />
                         </div>
                         {newLadders.length > 1 && (
                           <Button
@@ -499,7 +599,15 @@ const AddClub = () => {
                       type="button"
                       variant="outline"
                       onClick={() =>
-                        setNewLadders((prev) => [...prev, { id: `${Date.now()}-${Math.random()}`, type: "singles" }])
+                        setNewLadders((prev) => [
+                          ...prev,
+                          {
+                            id: `${Date.now()}-${Math.random()}`,
+                            type: "singles",
+                            warm_up_time: 10,
+                            play_time: 60,
+                          },
+                        ])
                       }
                     >
                       <Plus className="h-4 w-4 mr-2" />
@@ -532,8 +640,8 @@ const AddClub = () => {
                     </select>
                   </div>
 
-                  <div className="flex items-end gap-3">
-                    <div className="flex-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_180px_180px_auto] items-end gap-3">
+                    <div>
                       <Label>Ladder type</Label>
                       <select
                         value={addExistingLadderType}
@@ -544,6 +652,28 @@ const AddClub = () => {
                         <option value="singles">Singles</option>
                         <option value="doubles">Doubles</option>
                       </select>
+                    </div>
+                    <div>
+                      <Label>Warm up (min)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={addExistingWarmUpTime}
+                        onChange={(e) => setAddExistingWarmUpTime(Math.max(0, Number(e.target.value) || 0))}
+                        disabled={!selectedClubId}
+                      />
+                    </div>
+                    <div>
+                      <Label>Play (min)</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        step={1}
+                        value={addExistingPlayTime}
+                        onChange={(e) => setAddExistingPlayTime(Math.max(1, Number(e.target.value) || 60))}
+                        disabled={!selectedClubId}
+                      />
                     </div>
                     <Button
                       onClick={handleAddLadderToClub}
@@ -613,7 +743,7 @@ const AddClub = () => {
                   </form>
 
                   <div className="mt-6 space-y-3">
-                    <Label>Remove ladders</Label>
+                    <Label>Ladders</Label>
                     <div className="space-y-2">
                       {(clubLadders || []).length === 0 && (
                         <p className="text-sm text-gray-500">No ladders for this club.</p>
@@ -621,24 +751,77 @@ const AddClub = () => {
                       {clubLadders.map((ladder) => (
                         <div
                           key={ladder.id}
-                          className="flex items-center justify-between border rounded-md px-3 py-2 bg-white"
+                          className="border rounded-md px-3 py-3 bg-white space-y-3"
                         >
                           <div className="text-sm">
                             <div className="font-medium">{ladder.name}</div>
                             <div className="text-gray-500 capitalize">{ladder.type}</div>
                           </div>
-                          <Button
-                            variant="outline"
-                            className="text-red-600 border-red-200"
-                            disabled={ladderDeleting}
-                            onClick={() => {
-                              setSelectedLadderId(ladder.id);
-                              setLadderEditType((ladder.type as "singles" | "doubles") || "singles");
-                              handleDeleteLadder();
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <Label className="text-xs text-gray-600">Warm up (min)</Label>
+                              <Input
+                                type="number"
+                                min={0}
+                                step={1}
+                                value={ladderTimingsById[ladder.id]?.warm_up_time ?? 10}
+                                onChange={(e) =>
+                                  setLadderTimingsById((prev) => ({
+                                    ...prev,
+                                    [ladder.id]: {
+                                      warm_up_time: Math.max(0, Number(e.target.value) || 0),
+                                      play_time:
+                                        prev[ladder.id]?.play_time ??
+                                        (Number.isFinite(ladder.play_time) ? Number(ladder.play_time) : 60),
+                                    },
+                                  }))
+                                }
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs text-gray-600">Play (min)</Label>
+                              <Input
+                                type="number"
+                                min={1}
+                                step={1}
+                                value={ladderTimingsById[ladder.id]?.play_time ?? 60}
+                                onChange={(e) =>
+                                  setLadderTimingsById((prev) => ({
+                                    ...prev,
+                                    [ladder.id]: {
+                                      warm_up_time:
+                                        prev[ladder.id]?.warm_up_time ??
+                                        (Number.isFinite(ladder.warm_up_time) ? Number(ladder.warm_up_time) : 10),
+                                      play_time: Math.max(1, Number(e.target.value) || 60),
+                                    },
+                                  }))
+                                }
+                              />
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              className="bg-green-600 hover:bg-green-700 text-white"
+                              disabled={savingLadderTimingId === ladder.id}
+                              onClick={() => handleSaveLadderTiming(ladder.id)}
+                            >
+                              {savingLadderTimingId === ladder.id ? "Saving..." : "Save times"}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="text-red-600 border-red-200"
+                              disabled={ladderDeleting}
+                              onClick={() => {
+                                setSelectedLadderId(ladder.id);
+                                setLadderEditType((ladder.type as "singles" | "doubles") || "singles");
+                                handleDeleteLadder();
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       ))}
                     </div>

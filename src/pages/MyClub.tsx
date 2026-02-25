@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Building, Mail, Phone, Globe, MapPin, Shield, ArrowLeft } from "lucide-react";
+import { Building, Mail, Phone, Globe, MapPin, Shield, ArrowLeft, Trophy } from "lucide-react";
 
 type ClubRow = {
   id: string;
@@ -20,6 +20,7 @@ type ClubRow = {
 type AdminRow = {
   id: string;
   name: string | null;
+  last_name?: string | null;
   email: string | null;
   phone: string | null;
   clubs: string[] | null;
@@ -77,7 +78,7 @@ const MyClub = () => {
 
       const { data: adminRows, error: adminError } = await (supabase as any)
         .from("players")
-        .select("id,name,email,phone,clubs")
+        .select("id,name,last_name,email,phone,clubs")
         .eq("is_admin", true);
 
       if (adminError) {
@@ -149,13 +150,13 @@ const MyClub = () => {
               const clubAdmins = adminsByClub[club.id] || [];
               return (
                 <Card key={club.id} className="border-green-200 shadow-sm">
-                  <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-t-lg">
-                    <CardTitle className="flex items-center gap-2 text-green-800">
+                  <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-t-lg py-3.5">
+                    <CardTitle className="flex items-center gap-2 text-green-800 text-lg sm:text-xl">
                       <Building className="h-5 w-5" />
                       {club.name || "Club"}
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-5">
+                  <CardContent className="pt-5 space-y-5">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                       {club.address && (
                         <div className="flex items-start gap-2 text-gray-700">
@@ -224,8 +225,11 @@ const MyClub = () => {
                       )}
                       {club.sport && (
                         <div className="flex items-start gap-2 text-gray-700">
-                          <div className="font-semibold text-gray-800">Sport</div>
-                          <div>{club.sport}</div>
+                          <Trophy className="h-4 w-4 text-green-600 mt-0.5" />
+                          <div>
+                            <div className="font-semibold text-gray-800">Sport</div>
+                            <div>{club.sport}</div>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -239,7 +243,7 @@ const MyClub = () => {
                     <div>
                       <div className="flex items-center gap-2 font-semibold text-gray-800 mb-3">
                         <Shield className="h-4 w-4 text-green-600" />
-                        Club Admins
+                        Club Admin
                       </div>
                       {clubAdmins.length === 0 ? (
                         <p className="text-sm text-gray-600">No club admin assigned.</p>
@@ -247,7 +251,9 @@ const MyClub = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                           {clubAdmins.map((admin) => (
                             <div key={admin.id} className="border border-green-100 rounded-md p-3 bg-white space-y-2">
-                              <div className="font-semibold text-gray-800">{admin.name || "Admin"}</div>
+                              <div className="font-semibold text-gray-800">
+                                {[admin.name, admin.last_name].filter(Boolean).join(" ") || "Club Admin"}
+                              </div>
                               <div className="flex items-start gap-2 text-gray-700">
                                 <Mail className="h-4 w-4 text-green-600 mt-0.5" />
                                 <div>
