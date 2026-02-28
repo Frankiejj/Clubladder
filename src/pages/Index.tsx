@@ -11,6 +11,8 @@ import { RemovePlayerModal } from "@/components/RemovePlayerModal";
 import { PendingMatches } from "@/components/PendingMatches";
 import { Header } from "@/components/Header";
 import { PlayerDetailsModal } from "@/components/PlayerDetailsModal";
+import { scheduleMatch } from "@/services/matchScheduling";
+import { useToast } from "@/hooks/use-toast";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -26,9 +28,21 @@ import { Trophy, Users } from "lucide-react";
 export default function Index() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { toast } = useToast();
   const formatLadderName = (name?: string | null, fallback?: string) => {
     if (!name) return fallback || "Ladder";
     return name.replace(/\s*\((Singles|Doubles)\)\s*/gi, " ").trim();
+  };
+  const formatScheduledDate = (value: string) => {
+    const dt = new Date(value);
+    if (Number.isNaN(dt.getTime())) return value;
+    return dt.toLocaleString(undefined, {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
   const formatRoundDate = (value?: string | null) => {
     if (!value) return null;
@@ -239,32 +253,48 @@ export default function Index() {
   }
 
   const handleSchedule = async (matchId: string, datetimeIso: string) => {
-    const { error } = await (supabase as any)
-      .from("matches")
-      .update({ scheduled_date: datetimeIso, status: "scheduled" })
-      .eq("id", matchId);
+    const existingMatch = challenges.find((m) => m.id === matchId);
+    const isReschedule = Boolean(existingMatch?.scheduledDate);
+    const successTitle = isReschedule ? "Match rescheduled" : "Match scheduled";
 
-    if (error) {
+    try {
+      const result = await scheduleMatch(matchId, datetimeIso);
+      const nextDate = result.scheduledDate || datetimeIso;
+
+      setChallenges((prev) =>
+        prev.map((m) =>
+          m.id === matchId
+            ? {
+                ...m,
+                scheduledDate: nextDate,
+                status: "scheduled",
+              }
+            : m
+        )
+      );
+
+      if (result.ok === false) {
+        toast({
+          title: successTitle,
+          description: "Date saved, but some email notifications failed.",
+        });
+        console.error("Scheduled match email partial failure", result);
+        return;
+      }
+
+      toast({
+        title: successTitle,
+        description: formatScheduledDate(nextDate),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not schedule match";
+      toast({
+        title: isReschedule ? "Reschedule failed" : "Schedule failed",
+        description: message,
+        variant: "destructive",
+      });
       console.error("Schedule failed", error);
       return;
-    }
-
-    setChallenges((prev) =>
-      prev.map((m) => (m.id === matchId ? { ...m, scheduledDate: datetimeIso, status: "scheduled" } : m))
-    );
-
-    const { data: notifyData, error: notifyError } = await supabase.functions.invoke(
-      "send-pending-round-emails",
-      {
-        body: { mode: "scheduled_match", matchId },
-      }
-    );
-    if (notifyError) {
-      console.error("Scheduled match email failed", notifyError);
-      return;
-    }
-    if ((notifyData as any)?.ok === false) {
-      console.error("Scheduled match email partial failure", notifyData);
     }
   };
 

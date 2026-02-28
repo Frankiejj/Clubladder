@@ -43,6 +43,12 @@ const isSecondFriday = (roundStart: string, today: string) => {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const jsonResponse = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+
 const postResendEmail = async (
   apiKey: string,
   payload: Record<string, unknown>,
@@ -92,16 +98,16 @@ serve(async (req) => {
   }
 
   if (!resendApiKey) {
-    return new Response(JSON.stringify({ error: "Missing RESEND_API_KEY" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ error: "Missing RESEND_API_KEY" }, 500);
   }
 
   const payload = req.method === "POST" ? await req.json().catch(() => ({})) : {};
   const requestedMode = typeof payload?.mode === "string" ? payload.mode : "start";
   const mode =
-    requestedMode === "second_friday" || requestedMode === "scheduled_match" || requestedMode === "start"
+    requestedMode === "second_friday" ||
+    requestedMode === "scheduled_match" ||
+    requestedMode === "schedule_match" ||
+    requestedMode === "start"
       ? requestedMode
       : "start";
 
@@ -109,88 +115,76 @@ serve(async (req) => {
     auth: { persistSession: false },
   });
 
-  if (mode === "scheduled_match") {
+  if (mode === "scheduled_match" || mode === "schedule_match") {
     const matchId = typeof payload?.matchId === "string" ? payload.matchId : null;
     if (!matchId) {
-      return new Response(JSON.stringify({ error: "Missing matchId for scheduled_match mode" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: `Missing matchId for ${mode} mode` }, 400);
+    }
+
+    const scheduledDate =
+      mode === "schedule_match" && typeof payload?.scheduledDate === "string"
+        ? payload.scheduledDate
+        : null;
+    if (mode === "schedule_match") {
+      if (!scheduledDate) {
+        return jsonResponse({ error: "Missing scheduledDate for schedule_match mode" }, 400);
+      }
+      if (Number.isNaN(new Date(scheduledDate).getTime())) {
+        return jsonResponse({ error: "Invalid scheduledDate" }, 400);
+      }
     }
 
     const authHeader = req.headers.get("authorization");
     if (!authHeader?.toLowerCase().startsWith("bearer ")) {
-      return new Response(JSON.stringify({ error: "Missing bearer token" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: "Missing bearer token" }, 401);
     }
 
     const accessToken = authHeader.slice(7).trim();
     const { data: userData, error: userError } = await supabase.auth.getUser(accessToken);
     if (userError || !userData?.user?.email) {
-      return new Response(JSON.stringify({ error: "Invalid user session" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: "Invalid user session" }, 401);
     }
 
     const { data: requesterPlayer, error: requesterPlayerError } = await supabase
       .from("players")
-      .select("id,name,email")
+      .select("id,name,email,is_admin,is_super_admin,clubs")
       .ilike("email", userData.user.email)
       .maybeSingle();
     if (requesterPlayerError || !requesterPlayer?.id) {
-      return new Response(JSON.stringify({ error: "Current player not found" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: "Current player not found" }, 403);
     }
 
-    const { data: matchRow, error: matchError } = await supabase
+    const { data: existingMatchRow, error: matchError } = await supabase
       .from("matches")
       .select("id,ladder_id,round_label,challenger_id,challenged_id,status,scheduled_date")
       .eq("id", matchId)
       .maybeSingle();
 
-    if (matchError || !matchRow) {
-      return new Response(JSON.stringify({ error: "Match not found" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    if (matchError || !existingMatchRow) {
+      return jsonResponse({ error: "Match not found" }, 404);
     }
 
-    if (matchRow.status !== "scheduled" || !matchRow.scheduled_date) {
-      return new Response(JSON.stringify({ error: "Match is not scheduled" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    if (!matchRow.ladder_id || !matchRow.challenger_id || !matchRow.challenged_id) {
-      return new Response(JSON.stringify({ error: "Match is missing ladder or participants" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    if (!existingMatchRow.ladder_id || !existingMatchRow.challenger_id || !existingMatchRow.challenged_id) {
+      return jsonResponse({ error: "Match is missing ladder or participants" }, 400);
     }
 
     const { data: ladderInfo } = await supabase
       .from("ladders")
-      .select("id,name,type")
-      .eq("id", matchRow.ladder_id)
+      .select("id,name,type,club_id")
+      .eq("id", existingMatchRow.ladder_id)
       .maybeSingle();
 
     const ladderType = ladderInfo?.type || "singles";
     const ladderName = ladderInfo?.name || "Ladder";
 
-    const challengerId = matchRow.challenger_id as string;
-    const challengedId = matchRow.challenged_id as string;
+    const challengerId = existingMatchRow.challenger_id as string;
+    const challengedId = existingMatchRow.challenged_id as string;
     const membershipPlayerIds = [challengerId, challengedId];
 
     const { data: membershipRows } = await supabase
       .from("ladder_memberships")
       .select("player_id,partner_id")
-      .eq("ladder_id", matchRow.ladder_id)
+      .eq("ladder_id", existingMatchRow.ladder_id)
       .in("player_id", membershipPlayerIds);
 
     const partnerByPrimary: Record<string, string | null> = {};
@@ -203,10 +197,37 @@ serve(async (req) => {
     const allInvolvedPlayerIds = Array.from(new Set([...teamAPlayers, ...teamBPlayers]));
 
     if (!allInvolvedPlayerIds.includes(requesterPlayer.id)) {
-      return new Response(JSON.stringify({ error: "Only participants can notify this match" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse(
+        {
+          error:
+            mode === "schedule_match"
+              ? "Only match participants can schedule this match"
+              : "Only participants can notify this match",
+        },
+        403
+      );
+    }
+
+    let matchRow = existingMatchRow;
+    if (mode === "schedule_match") {
+      const { error: updateError } = await supabase
+        .from("matches")
+        .update({ scheduled_date: scheduledDate, status: "scheduled" })
+        .eq("id", matchId);
+
+      if (updateError) {
+        return jsonResponse({ error: updateError.message }, 500);
+      }
+
+      matchRow = {
+        ...existingMatchRow,
+        scheduled_date: scheduledDate,
+        status: "scheduled",
+      };
+    }
+
+    if (matchRow.status !== "scheduled" || !matchRow.scheduled_date) {
+      return jsonResponse({ error: "Match is not scheduled" }, 400);
     }
 
     const { data: playerRows } = await supabase
@@ -286,26 +307,22 @@ serve(async (req) => {
       await sleep(550);
     }
 
-    return new Response(
-      JSON.stringify({
-        ok: failures.length === 0,
-        sent,
-        failed: failures.length,
-        failedRecipients: failures,
-        mode,
-        matchId,
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return jsonResponse({
+      ok: failures.length === 0,
+      sent,
+      failed: failures.length,
+      failedRecipients: failures,
+      mode,
+      matchId,
+      scheduledDate: matchRow.scheduled_date,
+      status: matchRow.status,
+    });
   }
 
   if (cronSecret) {
     const provided = req.headers.get("x-cron-secret");
     if (!provided || provided !== cronSecret) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: "Unauthorized" }, 401);
     }
   }
 
@@ -321,10 +338,7 @@ serve(async (req) => {
     .gte("round_end_date", today);
 
   if (matchesError) {
-    return new Response(JSON.stringify({ error: matchesError.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ error: matchesError.message }, 500);
   }
 
   const safeMatches = (matches || []).filter((match) => {
@@ -337,9 +351,7 @@ serve(async (req) => {
   });
 
   if (!safeMatches.length) {
-    return new Response(JSON.stringify({ ok: true, sent: 0, reason: "no matches" }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ ok: true, sent: 0, reason: "no matches" });
   }
 
   const ladderIds = Array.from(new Set(safeMatches.map((m) => m.ladder_id).filter(Boolean))) as string[];
@@ -538,14 +550,11 @@ serve(async (req) => {
     await sleep(550);
   }
 
-  return new Response(
-    JSON.stringify({
-      ok: failures.length === 0,
-      sent,
-      failed: failures.length,
-      failedRecipients: failures,
-      mode,
-    }),
-    { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-  );
+  return jsonResponse({
+    ok: failures.length === 0,
+    sent,
+    failed: failures.length,
+    failedRecipients: failures,
+    mode,
+  });
 });

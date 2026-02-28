@@ -9,6 +9,7 @@ import { Challenge } from "@/types/Challenge";
 import { PendingMatches } from "@/components/PendingMatches";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { scheduleMatch } from "@/services/matchScheduling";
 import {
   Select,
   SelectContent,
@@ -36,6 +37,17 @@ const MyMatches = () => {
   const formatLadderName = (name?: string | null, fallback?: string) => {
     if (!name) return fallback || "Ladder";
     return name.replace(/\s*\((Singles|Doubles)\)\s*/gi, " ").trim();
+  };
+  const formatScheduledDate = (value: string) => {
+    const dt = new Date(value);
+    if (Number.isNaN(dt.getTime())) return value;
+    return dt.toLocaleString(undefined, {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
   // Fetch data from Supabase to ensure we only show public.matches
@@ -247,53 +259,48 @@ const MyMatches = () => {
   }, [selectedLadderId]);
 
   const handleSchedule = async (matchId: string, datetimeIso: string) => {
-    const { error } = await (supabase as any)
-      .from("matches")
-      .update({ scheduled_date: datetimeIso, status: "scheduled" })
-      .eq("id", matchId);
+    const existingMatch = challenges.find((m) => m.id === matchId);
+    const isReschedule = Boolean(existingMatch?.scheduledDate);
+    const successTitle = isReschedule ? "Match rescheduled" : "Match scheduled";
 
-    if (error) {
+    try {
+      const result = await scheduleMatch(matchId, datetimeIso);
+      const nextDate = result.scheduledDate || datetimeIso;
+
+      setChallenges((prev) =>
+        prev.map((m) =>
+          m.id === matchId
+            ? {
+                ...m,
+                scheduledDate: nextDate,
+                status: "scheduled",
+              }
+            : m
+        )
+      );
+
+      if (result.ok === false) {
+        toast({
+          title: successTitle,
+          description: "Date saved, but some email notifications failed.",
+        });
+        console.error("Scheduled match email partial failure", result);
+        return;
+      }
+
       toast({
-        title: "Schedule failed",
-        description: error.message,
+        title: successTitle,
+        description: formatScheduledDate(nextDate),
+      });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Could not schedule match";
+      toast({
+        title: isReschedule ? "Reschedule failed" : "Schedule failed",
+        description: message,
         variant: "destructive",
       });
       return;
     }
-
-    setChallenges((prev) =>
-      prev.map((m) => (m.id === matchId ? { ...m, scheduledDate: datetimeIso, status: "scheduled" } : m))
-    );
-
-    const { data: notifyData, error: notifyError } = await supabase.functions.invoke(
-      "send-pending-round-emails",
-      {
-        body: { mode: "scheduled_match", matchId },
-      }
-    );
-
-    if (notifyError) {
-      toast({
-        title: "Match scheduled",
-        description: "Date saved, but email notification failed.",
-      });
-      console.error("Scheduled match email failed", notifyError);
-      return;
-    }
-
-    if ((notifyData as any)?.ok === false) {
-      toast({
-        title: "Match scheduled",
-        description: "Date saved, but some email notifications failed.",
-      });
-      console.error("Scheduled match email partial failure", notifyData);
-      return;
-    }
-
-    toast({
-      title: "Match scheduled",
-      description: `Date set to ${datetimeIso}`,
-    });
   };
 
   const handleMatchResult = async (
