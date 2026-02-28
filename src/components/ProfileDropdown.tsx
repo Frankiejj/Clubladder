@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { User, LogOut, Trophy, Building, Shield, ListOrdered, Users, BookOpen } from "lucide-react";
+import { User, LogOut, Trophy, Building, Shield, ListOrdered, Users, BookOpen, FileText } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -185,6 +185,16 @@ export const ProfileDropdown = () => {
             <DropdownMenuItem
               onSelect={(e) => {
                 e.preventDefault();
+                navigate("/terms");
+              }}
+              className="flex items-center gap-2 cursor-pointer"
+            >
+              <FileText className="mr-2 h-4 w-4" />
+              Terms
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault();
                 navigate("/add-club");
               }}
               className="flex items-center gap-2 cursor-pointer"
@@ -254,6 +264,16 @@ export const ProfileDropdown = () => {
             >
               <BookOpen className="mr-2 h-4 w-4" />
               Rules
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault();
+                navigate("/terms");
+              }}
+              className="flex items-center gap-2 cursor-pointer"
+            >
+              <FileText className="mr-2 h-4 w-4" />
+              Terms
             </DropdownMenuItem>
             {profile.isAdmin && (
               <DropdownMenuItem

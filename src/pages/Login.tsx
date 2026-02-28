@@ -256,6 +256,13 @@ const Login = () => {
                   Register here
                 </Link>
               </p>
+              <p className="text-gray-600 mt-2">
+                By using Sportsladder, you agree to the{" "}
+                <Link to="/terms" className="text-green-600 font-medium">
+                  Terms
+                </Link>
+                .
+              </p>
             </div>
           </CardContent>
         </Card>

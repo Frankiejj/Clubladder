@@ -40,6 +40,7 @@ export default function Registration() {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
+  const [acceptedPolicies, setAcceptedPolicies] = useState(false);
 
   const cooldownKey = (value: string) => `otpCooldown:register:${value.trim().toLowerCase()}`;
 
@@ -107,6 +108,14 @@ export default function Registration() {
       toast({
         title: "Missing information",
         description: "First name, last name, email, country code, phone, sport, and club are required.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!acceptedPolicies) {
+      toast({
+        title: "Confirmation required",
+        description: "Please agree to the Terms.",
         variant: "destructive",
       });
       return;
@@ -511,6 +520,21 @@ export default function Registration() {
               </div>
             )}
 
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="policies-confirm"
+                checked={acceptedPolicies}
+                onCheckedChange={(checked) => setAcceptedPolicies(Boolean(checked))}
+              />
+              <Label htmlFor="policies-confirm" className="text-sm text-gray-700 leading-snug">
+                I agree to the{" "}
+                <Link to="/terms" className="text-green-600 font-medium">
+                  Terms
+                </Link>
+                .
+              </Label>
+            </div>
+
 
             {otpSent && (
               <div>
@@ -549,6 +573,14 @@ export default function Registration() {
                 {loading ? "Verifying..." : "Verify code & register"}
               </Button>
             )}
+
+            <p className="text-center text-sm text-gray-600">
+              By registering, you agree to the{" "}
+              <Link to="/terms" className="text-green-600 font-medium">
+                Terms
+              </Link>
+              .
+            </p>
           </CardContent>
         </Card>
       </div>

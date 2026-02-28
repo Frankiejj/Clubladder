@@ -20,6 +20,7 @@ import SuperAdmin from "./pages/SuperAdmin";
 import NotFound from "./pages/NotFound";
 import TeamDetails from "./pages/TeamDetails";
 import Rules from "./pages/Rules";
+import Terms from "./pages/Terms";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +42,7 @@ const App = () => (
           <Route path="/my-ladder" element={<MyLadder />} />
           <Route path="/my-club" element={<MyClub />} />
           <Route path="/rules" element={<Rules />} />
+          <Route path="/terms" element={<Terms />} />
           <Route path="/team/:membershipId" element={<TeamDetails />} />
           <Route path="/registration" element={<Registration />} />
           <Route path="/login" element={<Login />} />
