@@ -57,7 +57,7 @@ export default function LandingPage() {
                 <div className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-800/70">
                   Sportsladder
                 </div>
-                <div className="text-lg font-semibold text-slate-900">Club competition, cleaned up</div>
+                <div className="text-lg font-semibold text-slate-900">Club competition, the new way!</div>
               </div>
             </Link>
 
@@ -78,11 +78,11 @@ export default function LandingPage() {
             <section className="max-w-2xl">
               <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-900/10 bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-emerald-900/75 shadow-sm">
                 <Globe className="h-3.5 w-3.5" />
-                Ladders for tennis, padel, squash and golf
+                Ladders for tennis, padel, squash, golf and more
               </div>
 
               <h1 className="max-w-xl font-serif text-5xl leading-[0.96] text-slate-950 sm:text-6xl lg:text-7xl">
-                Run your club ladder without the spreadsheet mess.
+                Your internal club competition!
               </h1>
 
               <p className="mt-6 max-w-xl text-lg leading-8 text-slate-700 sm:text-xl">
