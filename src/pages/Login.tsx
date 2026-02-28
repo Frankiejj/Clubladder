@@ -174,7 +174,7 @@ const Login = () => {
       title: "Logged in",
       description: "Welcome back!",
     });
-    navigate("/");
+    navigate("/app");
   };
 
   return (

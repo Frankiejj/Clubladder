@@ -382,7 +382,7 @@ const TeamDetails = () => {
           <CardContent className="space-y-4">
             <p className="text-gray-700">This team is unavailable.</p>
             <div className="flex justify-center">
-              <Button onClick={() => navigate("/")}>Back to ladder</Button>
+              <Button onClick={() => navigate("/app")}>Back to ladder</Button>
             </div>
           </CardContent>
         </Card>
@@ -397,7 +397,7 @@ const TeamDetails = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100">
       <div className="container mx-auto px-4 py-8 max-w-5xl">
-        <Button onClick={() => navigate(`/?ladderId=${membership.ladder_id}`)}>
+        <Button onClick={() => navigate(`/app?ladderId=${membership.ladder_id}`)}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Ladder
         </Button>

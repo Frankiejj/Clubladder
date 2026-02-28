@@ -449,7 +449,7 @@ const AddClub = () => {
             <p className="text-red-700">
               Only super admins can add clubs.
             </p>
-            <Link to="/">
+            <Link to="/app">
               <Button className="w-full">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to ladder

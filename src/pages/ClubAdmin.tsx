@@ -27,7 +27,7 @@ const ClubAdmin = () => {
               <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
               <h2 className="text-xl font-bold text-gray-800 mb-2">Access Denied</h2>
               <p className="text-gray-600 mb-4">Only club administrators can access this page.</p>
-              <Link to="/">
+              <Link to="/app">
                 <Button>Return to Home</Button>
               </Link>
             </div>

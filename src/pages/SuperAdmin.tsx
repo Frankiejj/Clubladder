@@ -107,7 +107,7 @@ const SuperAdmin = () => {
           description: "Super admin access required.",
           variant: "destructive",
         });
-        navigate("/");
+        navigate("/app");
       } finally {
         setLoading(false);
       }
@@ -526,7 +526,7 @@ const SuperAdmin = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-red-700">Only super admins can access this page.</p>
-            <Link to="/">
+            <Link to="/app">
               <Button className="w-full">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to ladder

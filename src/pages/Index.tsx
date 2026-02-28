@@ -576,10 +576,10 @@ export default function Index() {
     const nextId = value === "none" ? "" : value;
     setSelectedLadderId(nextId);
     if (!nextId) {
-      navigate("/", { replace: true });
+      navigate("/app", { replace: true });
       return;
     }
-    navigate(`/?ladderId=${nextId}`, { replace: true });
+    navigate(`/app?ladderId=${nextId}`, { replace: true });
   };
 
   return (

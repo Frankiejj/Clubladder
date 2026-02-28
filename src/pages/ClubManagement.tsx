@@ -156,7 +156,7 @@ const ClubManagement = () => {
               <p className="text-red-700 mb-4">
                 Only Super Admins can access club management. Club Admins can manage players through the main ladder page.
               </p>
-              <Link to="/">
+              <Link to="/app">
                 <Button className="w-full">
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Back to Ladder
@@ -173,7 +173,7 @@ const ClubManagement = () => {
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100">
       <div className="container mx-auto px-4 py-8">
         <div className="mb-6">
-          <Link to="/">
+          <Link to="/app">
             <Button className="mb-4">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Ladder

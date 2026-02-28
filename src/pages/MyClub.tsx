@@ -123,7 +123,7 @@ const MyClub = () => {
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100">
       <div className="container mx-auto px-4 py-8 max-w-5xl">
         <div className="mb-6">
-          <Link to="/">
+          <Link to="/app">
             <Button className="mb-4">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Ladder

@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
+import RootEntry from "./pages/RootEntry";
 import MyMatches from "./pages/MyMatches";
 import ClubManagement from "./pages/ClubManagement";
 import ClubAdmin from "./pages/ClubAdmin";
@@ -31,7 +32,8 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Index />} />
+          <Route path="/" element={<RootEntry />} />
+          <Route path="/app" element={<Index />} />
           <Route path="/my-matches" element={<MyMatches />} />
           <Route path="/club-management" element={<ClubManagement />} />
           <Route path="/club-admin" element={<ClubAdmin />} />

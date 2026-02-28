@@ -45,7 +45,7 @@ export default function AuthCallback() {
           );
           if (error || !data?.session) throw error;
           setStatus("logged-in");
-          setTimeout(() => navigate("/"), 600);
+          setTimeout(() => navigate("/app"), 600);
           return;
         }
 
@@ -57,7 +57,7 @@ export default function AuthCallback() {
           });
           if (error || !data?.session) throw error;
           setStatus("logged-in");
-          setTimeout(() => navigate("/"), 600);
+          setTimeout(() => navigate("/app"), 600);
           return;
         }
 
@@ -67,7 +67,7 @@ export default function AuthCallback() {
           const { data, error } = await supabase.auth.setSession(hashTokens);
           if (error || !data?.session) throw error;
           setStatus("logged-in");
-          setTimeout(() => navigate("/"), 600);
+          setTimeout(() => navigate("/app"), 600);
           return;
         }
 

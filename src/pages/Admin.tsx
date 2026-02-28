@@ -116,7 +116,7 @@ const Admin = () => {
           description: "Admin access required.",
           variant: "destructive",
         });
-        navigate("/");
+        navigate("/app");
       } finally {
         setLoading(false);
       }
@@ -571,7 +571,7 @@ const Admin = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-red-700">Only club admins can access this page.</p>
-            <Link to="/">
+            <Link to="/app">
               <Button className="w-full">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to ladder
@@ -600,7 +600,7 @@ const Admin = () => {
             <p className="text-green-600">Manage rankings and matches for your clubs.</p>
           </div>
           {!isSuperAdmin && (
-            <Link to="/">
+            <Link to="/app">
               <Button variant="outline">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back

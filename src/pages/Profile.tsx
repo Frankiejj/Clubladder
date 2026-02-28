@@ -262,7 +262,7 @@ const Profile = () => {
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100">
       <div className="container mx-auto px-2 sm:px-4 py-8">
         <div className="mb-6 max-w-3xl mx-auto">
-          <Link to="/?ladder=singles">
+          <Link to="/app?ladder=singles">
             <Button className="mb-4">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Ladder
