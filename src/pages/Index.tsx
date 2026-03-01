@@ -365,8 +365,20 @@ export default function Index() {
   })();
 
   const selectedLadder = ladders.find((ladder) => ladder.id === selectedLadderId);
-  const playerCount = selectedLadderId ? ladderPlayerIds.size : 0;
   const isDoublesLadder = selectedLadder?.type === "doubles";
+  const visibleRankingIds = useMemo(() => {
+    if (!selectedLadderId) return new Set<string>();
+    if (!isDoublesLadder) return new Set(ladderPlayerIds);
+
+    const ids = new Set<string>();
+    ladderPlayerIds.forEach((playerId) => {
+      if ((ladderPrimaryMap[playerId] || playerId) === playerId) {
+        ids.add(playerId);
+      }
+    });
+    return ids;
+  }, [isDoublesLadder, ladderPlayerIds, ladderPrimaryMap, selectedLadderId]);
+  const playerCount = selectedLadderId ? visibleRankingIds.size : 0;
 
   // --------------------------
   // UI
@@ -382,7 +394,7 @@ export default function Index() {
 
   const rankingPlayers = selectedLadderId
     ? sortedPlayers
-        .filter((p) => ladderPlayerIds.has(p.id))
+        .filter((p) => visibleRankingIds.has(p.id))
         .map((player) => ({
           ...player,
           rank: ladderRankMap[player.id] ?? null,
@@ -787,7 +799,7 @@ export default function Index() {
               <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-lg shadow-sm border border-green-100">
                 <Users className="w-4 h-4 text-green-600" />
                 <span className="text-base sm:text-lg font-semibold text-green-800">
-                  {playerCount} Players
+                  {playerCount} {isDoublesLadder ? "Teams" : "Players"}
                 </span>
               </div>
             </CardTitle>

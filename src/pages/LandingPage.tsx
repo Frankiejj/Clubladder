@@ -1,4 +1,4 @@
-import { ArrowRight, Calendar, CheckCircle2, Globe, Smartphone, Trophy, Users } from "lucide-react";
+import { ArrowRight, CheckCircle2, Globe, Smartphone, Trophy } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -7,27 +7,6 @@ import { Card, CardContent } from "@/components/ui/card";
 const appStoreUrl = "";
 const playStoreUrl = "";
 
-const features = [
-  {
-    icon: Trophy,
-    title: "Rankings that actually move",
-    description:
-      "Run singles or doubles ladders with clear rounds, automatic match states, and a view players can understand at a glance.",
-  },
-  {
-    icon: Calendar,
-    title: "Scheduling without the back-and-forth",
-    description:
-      "Players schedule their own matches, reschedule when needed, and get email confirmations without admin babysitting.",
-  },
-  {
-    icon: Users,
-    title: "Built for clubs, not spreadsheets",
-    description:
-      "Keep club members, ladders, rules, and match activity in one place instead of WhatsApp threads and shared sheets.",
-  },
-];
-
 const steps = [
   "Join your club and set your match frequency.",
   "Get matched automatically inside the current round.",
@@ -35,8 +14,18 @@ const steps = [
 ];
 
 const storeLinks = [
-  { label: "App Store", href: appStoreUrl, note: "iPhone release" },
-  { label: "Google Play", href: playStoreUrl, note: "Android release" },
+  {
+    label: "App Store",
+    href: appStoreUrl,
+    note: "iPhone release",
+    eta: "Expected before March 31, 2026",
+  },
+  {
+    label: "Google Play",
+    href: playStoreUrl,
+    note: "Android release",
+    eta: "Expected before March 31, 2026",
+  },
 ];
 
 export default function LandingPage() {
@@ -116,21 +105,30 @@ export default function LandingPage() {
                   <CardContent className="p-5">
                     <div className="text-sm uppercase tracking-[0.2em] text-slate-500">Players</div>
                     <div className="mt-2 text-3xl font-semibold text-slate-950">Self-service</div>
-                    <p className="mt-2 text-sm leading-6 text-slate-600">Schedule and report matches without waiting for an admin.</p>
+                    <p className="mt-2 text-sm leading-6 text-slate-600">
+                      Players schedule their own matches, reschedule when needed, and report scores without waiting
+                      for an admin.
+                    </p>
                   </CardContent>
                 </Card>
                 <Card className="border-0 bg-[#14532d] text-white shadow-[0_20px_45px_rgba(20,83,45,0.25)]">
                   <CardContent className="p-5">
                     <div className="text-sm uppercase tracking-[0.2em] text-emerald-100/80">Clubs</div>
                     <div className="mt-2 text-3xl font-semibold">Less chasing</div>
-                    <p className="mt-2 text-sm leading-6 text-emerald-50/85">Match reminders and schedule updates happen inside the workflow.</p>
+                    <p className="mt-2 text-sm leading-6 text-emerald-50/85">
+                      Keep club members, ladders, rules, and match activity in one place instead of WhatsApp threads
+                      and shared sheets.
+                    </p>
                   </CardContent>
                 </Card>
                 <Card className="border-0 bg-white/78 shadow-[0_18px_45px_rgba(15,23,42,0.08)] backdrop-blur">
                   <CardContent className="p-5">
                     <div className="text-sm uppercase tracking-[0.2em] text-slate-500">Rounds</div>
                     <div className="mt-2 text-3xl font-semibold text-slate-950">Clear cadence</div>
-                    <p className="mt-2 text-sm leading-6 text-slate-600">Players always know who they play next and when the round ends.</p>
+                    <p className="mt-2 text-sm leading-6 text-slate-600">
+                      Run singles or doubles ladders with clear rounds, automatic match states, and a view players can
+                      understand at a glance.
+                    </p>
                   </CardContent>
                 </Card>
               </div>
@@ -209,39 +207,17 @@ export default function LandingPage() {
         </div>
       </div>
 
-      <section className="mx-auto max-w-7xl px-6 py-16 sm:px-8 lg:px-10">
-        <div className="grid gap-5 lg:grid-cols-3">
-          {features.map((feature) => {
-            const Icon = feature.icon;
-            return (
-              <Card
-                key={feature.title}
-                className="border-[#d6d0c0] bg-[#fffdf7] shadow-[0_20px_55px_rgba(148,163,184,0.12)]"
-              >
-                <CardContent className="p-6">
-                  <div className="mb-5 inline-flex rounded-2xl bg-emerald-100 p-3 text-emerald-800">
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <h2 className="text-2xl font-semibold text-slate-950">{feature.title}</h2>
-                  <p className="mt-3 text-sm leading-7 text-slate-600">{feature.description}</p>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      </section>
-
       <section className="border-y border-slate-900/8 bg-[#1c1917] text-white">
         <div className="mx-auto max-w-7xl px-6 py-16 sm:px-8 lg:px-10">
           <div className="grid gap-8 lg:grid-cols-[1fr_0.9fr]">
             <div>
               <div className="text-sm uppercase tracking-[0.28em] text-emerald-300/70">Launch surfaces</div>
               <h2 className="mt-4 font-serif text-4xl leading-tight sm:text-5xl">
-                Web first now. Store links ready to drop in when your mobile release is live.
+                Web app first. App Store and Play Store release planned.
               </h2>
               <p className="mt-5 max-w-2xl text-base leading-8 text-stone-300">
-                This landing page already gives you a public front door for the product. When your App Store and Play
-                Store listings are ready, you only need to plug the URLs into this page.
+                Sportsladder is available as a web app first, and the store links can be added here as soon as the
+                mobile releases are live.
               </p>
             </div>
 
@@ -257,6 +233,7 @@ export default function LandingPage() {
                   >
                     <div className="text-xs uppercase tracking-[0.24em] text-emerald-300/70">{store.note}</div>
                     <div className="mt-3 text-2xl font-semibold">{store.label}</div>
+                    <div className="mt-2 text-sm text-stone-300">{store.eta}</div>
                     <div className="mt-3 inline-flex items-center gap-2 text-sm text-emerald-100">
                       Open store listing
                       <ArrowRight className="h-4 w-4" />
@@ -269,6 +246,7 @@ export default function LandingPage() {
                   >
                     <div className="text-xs uppercase tracking-[0.24em] text-emerald-300/70">{store.note}</div>
                     <div className="mt-3 text-2xl font-semibold">{store.label}</div>
+                    <div className="mt-2 text-sm text-stone-300">{store.eta}</div>
                     <div className="mt-3 text-sm text-stone-300">Add your published store URL here later.</div>
                   </div>
                 )
