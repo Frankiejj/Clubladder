@@ -29,7 +29,7 @@ export default function Registration() {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [countryCode, setCountryCode] = useState("1");
+  const [countryCode, setCountryCode] = useState("31");
   const [clubId, setClubId] = useState("");
   const [clubConfirmed, setClubConfirmed] = useState(false);
   const [availableSports, setAvailableSports] = useState<string[]>([]);

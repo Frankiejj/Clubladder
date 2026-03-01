@@ -17,6 +17,9 @@ interface PlayerDetailsModalProps {
   clubs: { id: string; name: string; city?: string }[];
   selectedLadderId?: string;
   selectedLadderType?: "singles" | "doubles";
+  ladderPlayerIds?: string[];
+  partnerIdByPlayerId?: Record<string, string | null>;
+  rankByPlayerId?: Record<string, number>;
 }
 
 export const PlayerDetailsModal = ({
@@ -28,6 +31,9 @@ export const PlayerDetailsModal = ({
   clubs,
   selectedLadderId,
   selectedLadderType,
+  ladderPlayerIds,
+  partnerIdByPlayerId,
+  rankByPlayerId,
 }: PlayerDetailsModalProps) => {
   if (!player) return null;
 
@@ -47,10 +53,14 @@ export const PlayerDetailsModal = ({
 
   useEffect(() => {
     const loadLadderMemberships = async () => {
+      const fallbackPartnerId = partnerIdByPlayerId?.[player.id] ?? null;
+      const fallbackRank = rankByPlayerId?.[player.id] ?? null;
+
       if (!selectedLadderId || !player?.id) {
         setLadderMembers([]);
-        setPartnerId(null);
-        setLadderRank(null);
+        setPartnerId(fallbackPartnerId);
+        setLadderRank(fallbackRank);
+        setMembershipId(null);
         return;
       }
 
@@ -62,8 +72,8 @@ export const PlayerDetailsModal = ({
       if (error) {
         console.error("Error loading ladder memberships:", error);
         setLadderMembers([]);
-        setPartnerId(null);
-        setLadderRank(null);
+        setPartnerId(fallbackPartnerId);
+        setLadderRank(fallbackRank);
         setMembershipId(null);
         return;
       }
@@ -85,14 +95,14 @@ export const PlayerDetailsModal = ({
         );
         setMembershipId(membership.id || null);
       } else {
-        setPartnerId(null);
-        setLadderRank(null);
+        setPartnerId(fallbackPartnerId);
+        setLadderRank(fallbackRank);
         setMembershipId(null);
       }
     };
 
     loadLadderMemberships();
-  }, [player?.id, selectedLadderId]);
+  }, [player?.id, selectedLadderId, partnerIdByPlayerId, rankByPlayerId]);
 
   const teamDisplayName = useMemo(() => {
     if (!partnerId) return player.name;
@@ -102,15 +112,28 @@ export const PlayerDetailsModal = ({
 
   const ladderMemberIds = useMemo(() => {
     if (!selectedLadderId) return new Set<string>();
+    if (!ladderMembers.length) {
+      return new Set((ladderPlayerIds || []).filter(Boolean));
+    }
     const ids = new Set<string>();
     ladderMembers.forEach((row) => {
       if (row.player_id) ids.add(row.player_id);
       if (row.partner_id) ids.add(row.partner_id);
     });
     return ids;
-  }, [ladderMembers, selectedLadderId]);
+  }, [ladderMembers, ladderPlayerIds, selectedLadderId]);
 
   const ladderHasPartnerByPlayerId = useMemo(() => {
+    if (!ladderMembers.length) {
+      const map: Record<string, boolean> = {};
+      Object.entries(partnerIdByPlayerId || {}).forEach(([playerId, linkedPartnerId]) => {
+        map[playerId] = Boolean(linkedPartnerId);
+        if (linkedPartnerId) {
+          map[linkedPartnerId] = true;
+        }
+      });
+      return map;
+    }
     const map: Record<string, boolean> = {};
     ladderMembers.forEach((row) => {
       if (row.player_id) {
@@ -121,7 +144,7 @@ export const PlayerDetailsModal = ({
       }
     });
     return map;
-  }, [ladderMembers]);
+  }, [ladderMembers, partnerIdByPlayerId]);
 
   const teamIds = useMemo(() => {
     const ids = new Set<string>([player.id]);
@@ -205,6 +228,12 @@ export const PlayerDetailsModal = ({
 
   useEffect(() => {
     const loadPositionHistory = async () => {
+      const currentRankFallback =
+        ladderRank ??
+        rankByPlayerId?.[player?.id || ""] ??
+        player?.rank ??
+        0;
+
       if (!player?.id) {
         setPositionHistory([]);
         return;
@@ -261,7 +290,7 @@ export const PlayerDetailsModal = ({
         if (Number.isFinite(rank)) {
           setPositionHistory([{ date: "Current", rank: Number(rank), change: "same" }]);
         } else {
-          setPositionHistory([{ date: "Current", rank: player.rank, change: "same" }]);
+          setPositionHistory([{ date: "Current", rank: currentRankFallback, change: "same" }]);
         }
         return;
       }
@@ -276,7 +305,7 @@ export const PlayerDetailsModal = ({
         });
       }
       if (!rows.length) {
-        setPositionHistory([{ date: "Current", rank: player.rank, change: "same" }]);
+        setPositionHistory([{ date: "Current", rank: currentRankFallback, change: "same" }]);
         return;
       }
 
@@ -302,7 +331,7 @@ export const PlayerDetailsModal = ({
     };
 
     loadPositionHistory();
-  }, [player?.id, player?.rank, selectedLadderId, membershipId]);
+  }, [player?.id, player?.rank, selectedLadderId, membershipId, ladderRank, rankByPlayerId]);
 
   const getRankColor = (rank: number) => {
     if (rank === 1) return "text-yellow-600";

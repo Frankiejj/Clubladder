@@ -96,7 +96,7 @@ export default function LandingPage() {
                   size="lg"
                   className="rounded-full bg-[#14532d] px-6 text-white shadow-[0_18px_36px_rgba(20,83,45,0.28)] hover:bg-[#166534]"
                 >
-                  <Link to="/login">
+                  <Link to="/">
                     Open web app
                     <ArrowRight className="h-4 w-4" />
                   </Link>

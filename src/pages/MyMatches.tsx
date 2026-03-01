@@ -18,6 +18,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+type LadderOption = {
+  id: string;
+  name: string | null;
+  type: string;
+  club_id: string | null;
+};
+
 const MyMatches = () => {
   const { toast } = useToast();
 
@@ -25,7 +32,7 @@ const MyMatches = () => {
   const [players, setPlayers] = useState<Player[]>([]);
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [ladders, setLadders] = useState<Array<{ id: string; name: string | null; type: string }>>([]);
+  const [ladders, setLadders] = useState<LadderOption[]>([]);
   const [laddersLoading, setLaddersLoading] = useState(false);
   const [selectedLadderId, setSelectedLadderId] = useState<string>("");
   const [ladderMemberIds, setLadderMemberIds] = useState<Set<string>>(new Set());
@@ -33,6 +40,13 @@ const MyMatches = () => {
   const [ladderPrimaryMap, setLadderPrimaryMap] = useState<Record<string, string>>({});
   const [ladderRankMap, setLadderRankMap] = useState<Record<string, number>>({});
   const [ladderMembershipIdMap, setLadderMembershipIdMap] = useState<Record<string, string>>({});
+  const currentUserClubIds = useMemo(
+    () =>
+      Array.isArray(currentUser?.clubs)
+        ? currentUser.clubs.filter((clubId): clubId is string => Boolean(clubId))
+        : [],
+    [currentUser?.clubs]
+  );
 
   const formatLadderName = (name?: string | null, fallback?: string) => {
     if (!name) return fallback || "Ladder";
@@ -127,7 +141,11 @@ const MyMatches = () => {
 
   useEffect(() => {
     const loadUserLadders = async () => {
-      if (!currentUser?.id) return;
+      if (!currentUser?.id || !currentUserClubIds.length) {
+        setLadders([]);
+        setSelectedLadderId("");
+        return;
+      }
       setLaddersLoading(true);
       const { data: playerMemberships, error: playerMembershipError } = await (supabase as any)
         .from("ladder_memberships")
@@ -169,17 +187,20 @@ const MyMatches = () => {
 
       const { data: ladderRows, error: ladderError } = await (supabase as any)
         .from("ladders")
-        .select("id,name,type")
-        .in("id", ladderIds);
+        .select("id,name,type,club_id")
+        .in("id", ladderIds)
+        .in("club_id", currentUserClubIds);
 
       if (ladderError) {
         console.error("Error loading ladders:", ladderError);
         setLadders([]);
         setSelectedLadderId("");
       } else {
-        const safe = (ladderRows as any[]) || [];
+        const safe = (ladderRows as LadderOption[] | null) || [];
         setLadders(safe);
-        if (!selectedLadderId && safe.length) {
+        if (!safe.length) {
+          setSelectedLadderId("");
+        } else if (!selectedLadderId || !safe.some((ladder) => ladder.id === selectedLadderId)) {
           const singles = safe.find((l) => l.type === "singles");
           setSelectedLadderId((singles || safe[0]).id);
         }
@@ -188,7 +209,7 @@ const MyMatches = () => {
     };
 
     loadUserLadders();
-  }, [currentUser?.id, selectedLadderId]);
+  }, [currentUser?.id, currentUserClubIds, selectedLadderId]);
 
   useEffect(() => {
     const loadLadderMembers = async () => {
@@ -387,9 +408,14 @@ const MyMatches = () => {
     return ids;
   }, [currentUser, isDoublesLadder, ladderPartnerMap]);
 
+  const allowedLadderIds = useMemo(() => new Set(ladders.map((ladder) => ladder.id)), [ladders]);
+
   const filteredMatches = useMemo(() => {
     if (!currentUser) return [];
     return challenges.filter((c) => {
+      if (!c.ladderId || !allowedLadderIds.has(c.ladderId)) {
+        return false;
+      }
       if (!matchIds.has(c.challengerId) && !matchIds.has(c.challengedId)) {
         return false;
       }
@@ -399,7 +425,7 @@ const MyMatches = () => {
       }
       return true;
     });
-  }, [challenges, currentUser, matchIds, selectedLadderId, ladderMemberIds]);
+  }, [challenges, currentUser, matchIds, selectedLadderId, ladderMemberIds, allowedLadderIds]);
 
   if (isLoading || !currentUser) {
     return (

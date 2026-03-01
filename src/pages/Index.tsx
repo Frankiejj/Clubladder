@@ -25,6 +25,34 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Trophy, Users } from "lucide-react";
 
+type LadderOption = {
+  id: string;
+  name: string | null;
+  type: string;
+  club_id: string | null;
+};
+
+type LadderMembershipViewRow = {
+  id?: string | null;
+  player_id?: string | null;
+  partner_id?: string | null;
+  rank?: number | null;
+  team_avatar_url?: string | null;
+};
+
+type LadderMemberIdRow = {
+  member_id?: string | null;
+  player_id?: string | null;
+  partner_id?: string | null;
+};
+
+type LadderRankHistoryRow = {
+  membership_id?: string | null;
+  player_id?: string | null;
+  partner_id?: string | null;
+  rank?: number | null;
+};
+
 export default function Index() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -94,7 +122,7 @@ export default function Index() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [clubs, setClubs] = useState<any[]>([]);
-  const [ladders, setLadders] = useState<Array<{ id: string; name: string | null; type: string }>>([]);
+  const [ladders, setLadders] = useState<LadderOption[]>([]);
   const [laddersLoading, setLaddersLoading] = useState(false);
   const [selectedLadderId, setSelectedLadderId] = useState<string>("");
   const [ladderPlayerIds, setLadderPlayerIds] = useState<Set<string>>(new Set());
@@ -305,15 +333,29 @@ export default function Index() {
     (p) => p.email?.toLowerCase() === sessionUser?.email?.toLowerCase()
   );
 
-  const userClubIds = currentUser?.clubs ?? [];
+  const userClubIds = useMemo(
+    () =>
+      Array.isArray(currentUser?.clubs)
+        ? currentUser.clubs.filter((clubId): clubId is string => Boolean(clubId))
+        : [],
+    [currentUser?.clubs]
+  );
+  const allowedLadderIds = useMemo(() => new Set(ladders.map((ladder) => ladder.id)), [ladders]);
   const visiblePlayers =
     userClubIds.length > 0
       ? players.filter((p) =>
           (p.clubs ?? []).some((clubId) => userClubIds.includes(clubId))
         )
-      : players;
+      : [];
+  const visibleChallenges = useMemo(
+    () =>
+      challenges.filter(
+        (challenge) => !!challenge.ladderId && allowedLadderIds.has(challenge.ladderId)
+      ),
+    [challenges, allowedLadderIds]
+  );
   const clubLabel = (() => {
-    if (!userClubIds.length) return "All clubs";
+    if (!userClubIds.length) return "No club assigned";
     const names = clubs
       .filter((c) => userClubIds.includes(c.id))
       .map((c) => c.name)
@@ -369,7 +411,9 @@ export default function Index() {
 
   const currentRoundLabel = useMemo(() => {
     if (!selectedLadderId) return null;
-    const ladderMatches = challenges.filter((c) => c.ladderId === selectedLadderId && c.roundLabel);
+    const ladderMatches = visibleChallenges.filter(
+      (c) => c.ladderId === selectedLadderId && c.roundLabel
+    );
     if (!ladderMatches.length) return null;
     const parseLabel = (label: string) => {
       const match = label.match(/^(\d{4})-R(\d+)$/);
@@ -384,11 +428,11 @@ export default function Index() {
       if (b.year === a.year && b.round > a.round) return current;
       return best;
     }).roundLabel as string;
-  }, [challenges, selectedLadderId]);
+  }, [visibleChallenges, selectedLadderId]);
 
   const currentRoundDates = useMemo(() => {
     if (!selectedLadderId || !currentRoundLabel) return null;
-    const roundMatches = challenges.filter(
+    const roundMatches = visibleChallenges.filter(
       (c) => c.ladderId === selectedLadderId && c.roundLabel === currentRoundLabel
     );
     if (!roundMatches.length) return null;
@@ -396,7 +440,7 @@ export default function Index() {
     const end = roundMatches.map((c) => c.roundEndDate).find((d) => !!d) || null;
     if (!start && !end) return null;
     return { start, end };
-  }, [challenges, selectedLadderId, currentRoundLabel]);
+  }, [visibleChallenges, selectedLadderId, currentRoundLabel]);
 
   const headerCurrentUser = currentUser || null;
 
@@ -409,59 +453,27 @@ export default function Index() {
 
   useEffect(() => {
     const loadUserLadders = async () => {
-      if (!currentUser?.id) return;
+      if (!currentUser?.id || !userClubIds.length) {
+        setLadders([]);
+        setSelectedLadderId("");
+        return;
+      }
       setLaddersLoading(true);
-      const { data: playerMemberships, error: playerMembershipError } = await (supabase as any)
-        .from("ladder_memberships")
-        .select("ladder_id")
-        .eq("player_id", currentUser.id);
-      if (playerMembershipError) {
-        console.error("Error loading ladder memberships:", playerMembershipError);
-        setLadders([]);
-        setSelectedLadderId("");
-        setLaddersLoading(false);
-        return;
-      }
-
-      const { data: partnerMemberships, error: partnerMembershipError } = await (supabase as any)
-        .from("ladder_memberships")
-        .select("ladder_id")
-        .eq("partner_id", currentUser.id);
-      if (partnerMembershipError) {
-        console.error("Error loading partner ladder memberships:", partnerMembershipError);
-        setLadders([]);
-        setSelectedLadderId("");
-        setLaddersLoading(false);
-        return;
-      }
-
-      const ladderIds = Array.from(
-        new Set(
-          [...(playerMemberships as any[] | null), ...(partnerMemberships as any[] | null)]
-            .map((m) => m?.ladder_id)
-            .filter(Boolean)
-        )
-      );
-      if (!ladderIds.length) {
-        setLadders([]);
-        setSelectedLadderId("");
-        setLaddersLoading(false);
-        return;
-      }
-
       const { data: ladderRows, error: ladderError } = await (supabase as any)
         .from("ladders")
-        .select("id,name,type")
-        .in("id", ladderIds);
+        .select("id,name,type,club_id")
+        .in("club_id", userClubIds);
 
       if (ladderError) {
         console.error("Error loading ladders:", ladderError);
         setLadders([]);
         setSelectedLadderId("");
       } else {
-        const safe = (ladderRows as any[]) || [];
+        const safe = (ladderRows as LadderOption[] | null) || [];
         setLadders(safe);
-        if (!selectedLadderId && safe.length) {
+        if (!safe.length) {
+          setSelectedLadderId("");
+        } else if (!selectedLadderId || !safe.some((ladder) => ladder.id === selectedLadderId)) {
           const singles = safe.find((l) => l.type === "singles");
           setSelectedLadderId((singles || safe[0]).id);
         }
@@ -470,7 +482,7 @@ export default function Index() {
     };
 
     loadUserLadders();
-  }, [currentUser?.id, selectedLadderId]);
+  }, [currentUser?.id, selectedLadderId, userClubIds]);
 
   useEffect(() => {
     if (!ladders.length) return;
@@ -492,76 +504,194 @@ export default function Index() {
   }, [ladders, location.search, selectedLadderId]);
 
   useEffect(() => {
-    const loadLadderPlayers = async () => {
-      if (!selectedLadderId) {
-        setLadderPlayerIds(new Set());
-        setLadderRankMap({});
-        setLadderPartnerMap({});
-        setLadderMembershipIdMap({});
-        setLadderPrimaryMap({});
-        setLadderTeamAvatarMap({});
-        return;
-      }
-      setLadderPlayersLoading(true);
-      const { data, error } = await (supabase as any)
-        .from("ladder_memberships")
-        .select("id,player_id,rank,partner_id,team_avatar_url")
-        .eq("ladder_id", selectedLadderId);
-      if (error) {
-        console.error("Error loading ladder players:", error);
-        setLadderPlayerIds(new Set());
-        setLadderRankMap({});
-        setLadderPartnerMap({});
-        setLadderMembershipIdMap({});
-        setLadderPrimaryMap({});
-        setLadderTeamAvatarMap({});
-        setLadderPlayersLoading(false);
-        return;
-      }
-      const rows = (data as any[] | null) || [];
-      const ids = new Set<string>();
+    const resetLadderPlayers = () => {
+      setLadderPlayerIds(new Set());
+      setLadderRankMap({});
+      setLadderPartnerMap({});
+      setLadderMembershipIdMap({});
+      setLadderPrimaryMap({});
+      setLadderTeamAvatarMap({});
+    };
+
+    const applyLadderPlayers = (
+      rows: LadderMembershipViewRow[],
+      options?: { preserveMembershipLinks?: boolean; extraIds?: Iterable<string> }
+    ) => {
+      const ids = new Set<string>(options?.extraIds || []);
       const ranks: Record<string, number> = {};
       const partners: Record<string, string | null> = {};
       const membershipIds: Record<string, string> = {};
       const primaries: Record<string, string> = {};
       const teamAvatars: Record<string, string | null> = {};
+
       rows.forEach((row) => {
-        const playerId = row?.player_id;
-        const partnerId = row?.partner_id;
+        const playerId = row?.player_id ?? null;
+        const partnerId = row?.partner_id ?? null;
+        const membershipId = row?.id ?? null;
+        const rank =
+          typeof row?.rank === "number" && Number.isFinite(row.rank)
+            ? Number(row.rank)
+            : null;
+
         if (playerId) {
           ids.add(playerId);
-          if (Number.isFinite(row?.rank)) {
-            ranks[playerId] = Number(row.rank);
-          }
-          if (row?.id) {
-            membershipIds[playerId] = row.id;
-          }
           primaries[playerId] = playerId;
+          partners[playerId] = partnerId;
           teamAvatars[playerId] = row?.team_avatar_url ?? null;
+          if (rank !== null) {
+            ranks[playerId] = rank;
+          }
+          if (options?.preserveMembershipLinks !== false && membershipId) {
+            membershipIds[playerId] = membershipId;
+          }
         }
-        if (playerId) {
-          partners[playerId] = partnerId ?? null;
-        }
+
         if (partnerId) {
-          partners[partnerId] = playerId ?? null;
+          ids.add(partnerId);
           primaries[partnerId] = playerId ?? partnerId;
+          partners[partnerId] = playerId;
           teamAvatars[partnerId] = row?.team_avatar_url ?? null;
-          if (row?.id) {
-            membershipIds[partnerId] = row.id;
+          if (rank !== null) {
+            ranks[partnerId] = rank;
+          }
+          if (options?.preserveMembershipLinks !== false && membershipId) {
+            membershipIds[partnerId] = membershipId;
           }
         }
       });
+
       setLadderPlayerIds(ids);
       setLadderRankMap(ranks);
       setLadderPartnerMap(partners);
       setLadderMembershipIdMap(membershipIds);
       setLadderPrimaryMap(primaries);
       setLadderTeamAvatarMap(teamAvatars);
+    };
+
+    const loadLadderPlayers = async () => {
+      if (!selectedLadderId) {
+        resetLadderPlayers();
+        return;
+      }
+
+      setLadderPlayersLoading(true);
+      const { data, error } = await (supabase as any)
+        .from("ladder_memberships")
+        .select("id,player_id,rank,partner_id,team_avatar_url")
+        .eq("ladder_id", selectedLadderId);
+
+      const directRows = ((data as LadderMembershipViewRow[] | null) || []).filter(
+        (row) => row?.player_id || row?.partner_id
+      );
+
+      if (!error && directRows.length > 0) {
+        applyLadderPlayers(directRows);
+        setLadderPlayersLoading(false);
+        return;
+      }
+
+      if (error) {
+        console.warn(
+          "Direct ladder membership lookup failed, falling back to club-visible ladder data.",
+          error
+        );
+      }
+
+      const fallbackIds = new Set<string>();
+      const fallbackRowsByKey = new Map<string, LadderMembershipViewRow>();
+
+      const { data: rpcRows, error: rpcError } = await (supabase as any).rpc(
+        "get_ladder_member_ids_for_ladders",
+        { ladder_ids: [selectedLadderId] }
+      );
+
+      if (rpcError) {
+        console.warn("get_ladder_member_ids_for_ladders RPC failed", rpcError);
+      } else {
+        ((rpcRows as LadderMemberIdRow[] | null) || []).forEach((row) => {
+          const playerId = row?.player_id ?? null;
+          const partnerId = row?.partner_id ?? null;
+          const memberId = row?.member_id ?? null;
+          const key = memberId || `${playerId || ""}:${partnerId || ""}`;
+
+          if (playerId) fallbackIds.add(playerId);
+          if (partnerId) fallbackIds.add(partnerId);
+          if (!playerId && !partnerId) return;
+
+          if (!fallbackRowsByKey.has(key)) {
+            fallbackRowsByKey.set(key, {
+              id: memberId,
+              player_id: playerId,
+              partner_id: partnerId,
+              rank: null,
+              team_avatar_url: null,
+            });
+          }
+        });
+      }
+
+      visibleChallenges
+        .filter((challenge) => challenge.ladderId === selectedLadderId)
+        .forEach((challenge) => {
+          fallbackIds.add(challenge.challengerId);
+          fallbackIds.add(challenge.challengedId);
+        });
+
+      const { data: historyRows, error: historyError } = await (supabase as any)
+        .from("ladder_rank_history")
+        .select("membership_id,player_id,partner_id,rank")
+        .eq("ladder_id", selectedLadderId)
+        .order("created_at", { ascending: false });
+
+      if (historyError) {
+        console.warn("Fallback ladder rank history lookup failed", historyError);
+      } else {
+        ((historyRows as LadderRankHistoryRow[] | null) || []).forEach((row) => {
+          const playerId = row?.player_id ?? null;
+          const partnerId = row?.partner_id ?? null;
+          const membershipId = row?.membership_id ?? null;
+          const key = membershipId || `${playerId || ""}:${partnerId || ""}`;
+
+          if (playerId) fallbackIds.add(playerId);
+          if (partnerId) fallbackIds.add(partnerId);
+          if (!playerId && !partnerId) return;
+
+          if (fallbackRowsByKey.has(key)) {
+            const existing = fallbackRowsByKey.get(key)!;
+            if (typeof existing.rank !== "number" && typeof row?.rank === "number") {
+              existing.rank = row.rank;
+            }
+            return;
+          }
+
+          fallbackRowsByKey.set(key, {
+            id: membershipId,
+            player_id: playerId,
+            partner_id: partnerId,
+            rank:
+              typeof row?.rank === "number" && Number.isFinite(row.rank)
+                ? Number(row.rank)
+                : null,
+            team_avatar_url: null,
+          });
+        });
+      }
+
+      const fallbackRows = Array.from(fallbackRowsByKey.values());
+      if (fallbackRows.length > 0 || fallbackIds.size > 0) {
+        applyLadderPlayers(fallbackRows, {
+          preserveMembershipLinks: false,
+          extraIds: fallbackIds,
+        });
+      } else {
+        resetLadderPlayers();
+      }
+
       setLadderPlayersLoading(false);
     };
 
     loadLadderPlayers();
-  }, [selectedLadderId]);
+  }, [selectedLadderId, visibleChallenges]);
 
   if (loading)
     return (
@@ -629,7 +759,7 @@ export default function Index() {
                   ))}
                   {!laddersLoading && ladders.length === 0 && (
                     <SelectItem value="empty" disabled>
-                      No ladder memberships
+                      No ladders available
                     </SelectItem>
                   )}
                 </SelectContent>
@@ -696,7 +826,7 @@ export default function Index() {
                 {ladderPlayersLoading ? (
                   <p className="text-gray-600">Loading ladder rankings...</p>
                 ) : !selectedLadderId ? (
-                  <p className="text-gray-600">Join a ladder to view rankings.</p>
+                  <p className="text-gray-600">Select a ladder to view rankings.</p>
                 ) : rankingPlayers.length === 0 ? (
                   <p className="text-gray-600">No players found for this ladder.</p>
                 ) : (
@@ -705,7 +835,7 @@ export default function Index() {
                       key={player.id}
                       player={player}
                       players={rankingPlayers}
-                      challenges={challenges}
+                      challenges={visibleChallenges}
                       onPlayerClick={(clicked) => {
                         const membershipId =
                           (clicked as any)?.membershipId as string | undefined ||
@@ -750,13 +880,13 @@ export default function Index() {
                             const teamId = ladderPartnerMap[currentUser.id];
                             if (teamId) ids.add(teamId);
                           }
-                          return challenges.filter(
+                          return visibleChallenges.filter(
                             (c) =>
                               (c.ladderId === selectedLadderId || !selectedLadderId) &&
                               (ids.has(c.challengerId) || ids.has(c.challengedId))
                           );
                         })()
-                      : challenges.filter(
+                      : visibleChallenges.filter(
                           (c) => c.ladderId === selectedLadderId || !selectedLadderId
                         )
                   }
@@ -788,11 +918,14 @@ export default function Index() {
           player={selectedPlayer}
           isOpen={!!selectedPlayer}
           onClose={() => setSelectedPlayer(null)}
-          challenges={challenges}
+          challenges={visibleChallenges}
           players={players}
           clubs={clubs}
           selectedLadderId={selectedLadderId}
           selectedLadderType={selectedLadder?.type as "singles" | "doubles" | undefined}
+          ladderPlayerIds={Array.from(ladderPlayerIds)}
+          partnerIdByPlayerId={ladderPartnerMap}
+          rankByPlayerId={ladderRankMap}
         />
       </div>
     </div>
