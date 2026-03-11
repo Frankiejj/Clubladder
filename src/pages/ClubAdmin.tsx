@@ -75,7 +75,7 @@ const ClubAdmin = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 relative">
-      <div className="absolute top-4 right-4 z-10">
+      <div className="absolute top-6 right-4 z-10">
         <ProfileDropdown />
       </div>
       <div className="container mx-auto px-4 py-8 max-w-4xl">

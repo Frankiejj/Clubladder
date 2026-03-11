@@ -153,6 +153,83 @@ const Profile = () => {
     });
   };
 
+  const deleteAuthUser = async () => {
+    const { data, error } = await supabase.functions.invoke("delete-auth-user");
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data || typeof data !== "object" || (data as any).ok !== true) {
+      throw new Error((data as { error?: string })?.error || "Could not delete authentication account.");
+    }
+  };
+
+  const rebalanceLadderRanksForRemovedPlayer = async (removedPlayerId: string) => {
+    const membershipsResp = await (supabase as any)
+      .from("ladder_memberships")
+      .select("id,ladder_id")
+      .or(`player_id.eq.${removedPlayerId},partner_id.eq.${removedPlayerId}`);
+
+    if (membershipsResp.error) {
+      if (membershipsResp.error.code === "42P01") {
+        return;
+      }
+      throw membershipsResp.error;
+    }
+
+    const membershipRows = Array.isArray(membershipsResp.data)
+      ? (membershipsResp.data as { id: string; ladder_id: string }[])
+      : [];
+
+    if (!membershipRows.length) {
+      return;
+    }
+
+    const { error: deleteError } = await (supabase as any)
+      .from("ladder_memberships")
+      .delete()
+      .or(`player_id.eq.${removedPlayerId},partner_id.eq.${removedPlayerId}`);
+    if (deleteError && deleteError.code !== "42P01") {
+      throw deleteError;
+    }
+
+    const uniqueLadders = [...new Set(membershipRows.map((m) => m.ladder_id))];
+    for (const ladderId of uniqueLadders) {
+      const remainingResp = await (supabase as any)
+        .from("ladder_memberships")
+        .select("id,rank")
+        .eq("ladder_id", ladderId)
+        .order("rank", { ascending: true });
+      if (remainingResp.error) {
+        throw remainingResp.error;
+      }
+
+      const remaining = Array.isArray(remainingResp.data)
+        ? (remainingResp.data as { id: string; rank: number | null }[])
+        : [];
+
+      const updates = remaining.map((row, index) => ({
+        id: row.id,
+        rank: index + 1,
+      }));
+
+      await Promise.all(
+        updates.map((u) =>
+          (supabase as any)
+            .from("ladder_memberships")
+            .update({ rank: 1000000 + u.rank })
+            .eq("id", u.id)
+        )
+      );
+      await Promise.all(
+        updates.map((u) =>
+          (supabase as any).from("ladder_memberships").update({ rank: u.rank }).eq("id", u.id)
+        )
+      );
+    }
+  };
+
   const handleDeleteProfile = async () => {
     if (!playerId) return;
     const ok = window.confirm("Are you sure you want to remove your profile? This will delete your account data.");
@@ -182,14 +259,12 @@ const Profile = () => {
     }
 
     // Remove ladder memberships if table exists
-    const ladderMembershipsResp = await (supabase as any)
-      .from("ladder_memberships")
-      .delete()
-      .eq("player_id", playerId);
-    if (ladderMembershipsResp.error && ladderMembershipsResp.error.code !== "42P01") {
+    try {
+      await rebalanceLadderRanksForRemovedPlayer(playerId);
+    } catch (e: any) {
       toast({
         title: "Delete failed",
-        description: `Could not remove ladder memberships: ${ladderMembershipsResp.error.message}`,
+        description: e?.message || "Could not rebalance ladder rankings.",
         variant: "destructive",
       });
       setDeleting(false);
@@ -208,9 +283,24 @@ const Profile = () => {
       return;
     }
 
-    // Remove avatar from storage (best-effort)
     if (avatarPath) {
       await (supabase.storage.from("avatars") as any).remove([avatarPath]);
+    }
+
+    try {
+      await deleteAuthUser();
+    } catch (authError: any) {
+      console.error("Auth delete failed", authError);
+      await supabase.auth.signOut();
+      toast({
+        title: "Profile removed",
+        description:
+          "Your profile was removed, but your login email could not be deleted. Please contact support.",
+        variant: "destructive",
+      });
+      setDeleting(false);
+      navigate("/login");
+      return;
     }
 
     await supabase.auth.signOut();

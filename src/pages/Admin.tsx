@@ -332,6 +332,7 @@ const Admin = () => {
         return {
           membershipId: row.id,
           rank: row.rank ?? 0,
+          playerId: row.player_id,
           displayName,
           email: player?.email || "",
         };
@@ -403,6 +404,82 @@ const Admin = () => {
     setShowMatchModal(true);
   };
 
+  const rebalanceLadderRanksForRemovedPlayer = async (removedPlayerId: string) => {
+    const membershipResp = await (supabase as any)
+      .from("ladder_memberships")
+      .select("id,ladder_id")
+      .or(`player_id.eq.${removedPlayerId},partner_id.eq.${removedPlayerId}`);
+    if (membershipResp.error) {
+      if (membershipResp.error.code === "42P01") {
+        return;
+      }
+      throw membershipResp.error;
+    }
+
+    const memberships = Array.isArray(membershipResp.data)
+      ? (membershipResp.data as { id: string; ladder_id: string }[])
+      : [];
+    if (!memberships.length) return;
+
+    const { error: deleteError } = await (supabase as any)
+      .from("ladder_memberships")
+      .delete()
+      .or(`player_id.eq.${removedPlayerId},partner_id.eq.${removedPlayerId}`);
+    if (deleteError && deleteError.code !== "42P01") {
+      throw deleteError;
+    }
+
+    const updates: Array<{ id: string; rank: number; ladder_id: string }> = [];
+    const removedMembershipIds = new Set<string>(memberships.map((m) => m.id));
+    const ladderIds = [...new Set(memberships.map((m) => m.ladder_id))];
+    for (const ladderId of ladderIds) {
+      const remainingResp = await (supabase as any)
+        .from("ladder_memberships")
+        .select("id,rank")
+        .eq("ladder_id", ladderId)
+        .order("rank", { ascending: true });
+      if (remainingResp.error) {
+        throw remainingResp.error;
+      }
+
+      const remaining = Array.isArray(remainingResp.data)
+        ? (remainingResp.data as { id: string; rank: number | null }[])
+        : [];
+
+      const ladderUpdates = remaining.map((row, index) => ({
+        id: row.id,
+        ladder_id: ladderId,
+        rank: index + 1,
+      }));
+
+      await Promise.all(
+        ladderUpdates.map((u) =>
+          (supabase as any)
+            .from("ladder_memberships")
+            .update({ rank: 1000000 + u.rank })
+            .eq("id", u.id)
+        )
+      );
+      await Promise.all(
+        ladderUpdates.map((u) =>
+          (supabase as any).from("ladder_memberships").update({ rank: u.rank }).eq("id", u.id)
+        )
+      );
+
+      updates.push(...ladderUpdates);
+    }
+
+    setLadderMemberships((prev) => {
+      const byId = new Map(updates.map((u) => [u.id, u.rank]));
+      return prev
+        .filter((m) => !removedMembershipIds.has(m.id))
+        .map((m) => {
+          const nextRank = byId.get(m.id);
+          return nextRank ? { ...m, rank: nextRank } : m;
+        });
+    });
+  };
+
   const reorderAndSaveRanks = async (membershipId: string, newRank: number) => {
     if (!selectedLadderId) return;
     const current = ladderMemberships.filter((m) => m.ladder_id === selectedLadderId);
@@ -456,17 +533,28 @@ const Admin = () => {
   };
 
   const handleRemovePlayer = async (playerId: string) => {
-    const player = playerLookup[playerId];
+    const membership = ladderMemberships.find((membership) => membership.id === playerId);
+    const resolvedPlayerId = membership?.player_id || playerId;
+    const player = playerLookup[resolvedPlayerId];
+    if (!resolvedPlayerId) {
+      toast({
+        title: "Remove failed",
+        description: "Could not resolve player id.",
+        variant: "destructive",
+      });
+      return;
+    }
     const ok = window.confirm(`Remove player ${player?.name || ""}?`);
     if (!ok) return;
-    setRemovingPlayerId(playerId);
+    setRemovingPlayerId(resolvedPlayerId);
     try {
+      await rebalanceLadderRanksForRemovedPlayer(resolvedPlayerId);
       await (supabase as any)
         .from("matches")
         .delete()
-        .or(`challenger_id.eq.${playerId},challenged_id.eq.${playerId}`);
-      await (supabase as any).from("players").delete().eq("id", playerId);
-      setPlayers((prev) => prev.filter((p) => p.id !== playerId));
+        .or(`challenger_id.eq.${resolvedPlayerId},challenged_id.eq.${resolvedPlayerId}`);
+      await (supabase as any).from("players").delete().eq("id", resolvedPlayerId);
+      setPlayers((prev) => prev.filter((p) => p.id !== resolvedPlayerId));
       toast({ title: "Player removed" });
       setSelectedPlayerId("");
     } catch (error: any) {
@@ -586,7 +674,7 @@ const Admin = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 relative">
       {isSuperAdmin && (
-        <div className="absolute top-4 right-4 z-10">
+        <div className="absolute top-6 right-4 z-10">
           <ProfileDropdown />
         </div>
       )}
@@ -757,8 +845,12 @@ const Admin = () => {
                             </Button>
                             <Button
                               variant="destructive"
-                              onClick={() => handleRemovePlayer(selectedPlayerId)}
-                              disabled={removingPlayerId === selectedPlayerId}
+                              onClick={() => {
+                                const p = ladderRanking.find((r) => r.membershipId === selectedPlayerId);
+                                if (!p?.playerId) return;
+                                handleRemovePlayer(p.playerId);
+                              }}
+                              disabled={removingPlayerId === p?.playerId}
                             >
                               <Trash2 className="h-4 w-4 mr-2" />
                               Remove Player
