@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Shield, Plus, Building, ArrowLeft, Save, Trash2 } from "lucide-react";
+import { Shield, Plus, Building, ArrowLeft, Save, Trash2, UserCog } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProfileDropdown } from "@/components/ProfileDropdown";
 
@@ -39,6 +39,7 @@ const AddClub = () => {
   ]);
 
   const [clubs, setClubs] = useState<any[]>([]);
+  const [players, setPlayers] = useState<any[]>([]);
   const [clubsLoading, setClubsLoading] = useState(false);
   const [selectedClubId, setSelectedClubId] = useState("");
   const [clubLadders, setClubLadders] = useState<any[]>([]);
@@ -51,6 +52,9 @@ const AddClub = () => {
   const [ladderSaving, setLadderSaving] = useState(false);
   const [ladderDeleting, setLadderDeleting] = useState(false);
   const [savingLadderTimingId, setSavingLadderTimingId] = useState<string | null>(null);
+  const [clubAdminsByClubId, setClubAdminsByClubId] = useState<Record<string, string[]>>({});
+  const [savingClubAdmin, setSavingClubAdmin] = useState(false);
+  const [pendingClubAdminId, setPendingClubAdminId] = useState("none");
   const [ladderTimingsById, setLadderTimingsById] = useState<
     Record<string, { warm_up_time: number; play_time: number }>
   >({});
@@ -85,6 +89,7 @@ const AddClub = () => {
       setPageLoading(false);
       if (isSuperAdmin) {
         fetchClubs();
+        fetchPlayers();
       }
     };
 
@@ -103,8 +108,51 @@ const AddClub = () => {
       });
     } else {
       setClubs(data || []);
+      fetchClubAdmins((data || []).map((club) => club.id));
     }
     setClubsLoading(false);
+  };
+
+  const fetchPlayers = async () => {
+    const { data, error } = await supabase
+      .from("players")
+      .select("id,name,last_name,email,clubs")
+      .order("name", { ascending: true });
+
+    if (error) {
+      console.error("Error loading players", error);
+      return;
+    }
+
+    setPlayers(data || []);
+  };
+
+  const fetchClubAdmins = async (clubIds: string[]) => {
+    if (!clubIds.length) {
+      setClubAdminsByClubId({});
+      return;
+    }
+
+    const { data, error } = await (supabase as any)
+      .from("club_admins")
+      .select("club_id,player_id")
+      .in("club_id", clubIds);
+
+    if (error) {
+      console.error("Error loading club admins", error);
+      setClubAdminsByClubId({});
+      return;
+    }
+
+    const grouped = (((data as Array<{ club_id: string; player_id: string }>) || [])).reduce<
+      Record<string, string[]>
+    >((acc, row) => {
+      if (!acc[row.club_id]) acc[row.club_id] = [];
+      acc[row.club_id].push(row.player_id);
+      return acc;
+    }, {});
+
+    setClubAdminsByClubId(grouped);
   };
 
   const fetchLadders = async (clubId: string) => {
@@ -251,7 +299,83 @@ const AddClub = () => {
     fetchLadders(clubId);
     setSelectedLadderId("");
     setLadderEditType("singles");
+    setPendingClubAdminId(clubId ? clubAdminsByClubId[clubId]?.[0] || "none" : "none");
   };
+
+  const handleAssignClubAdmin = async (playerId: string) => {
+    if (!selectedClubId) return;
+
+    setSavingClubAdmin(true);
+    const club = clubs.find((c) => c.id === selectedClubId);
+    try {
+      const { error: deleteError } = await (supabase as any)
+        .from("club_admins")
+        .delete()
+        .eq("club_id", selectedClubId);
+
+      if (deleteError) throw deleteError;
+
+      if (playerId !== "none") {
+        const { error: insertError } = await (supabase as any)
+          .from("club_admins")
+          .insert({
+            club_id: selectedClubId,
+            player_id: playerId,
+            role: "admin",
+          });
+
+        if (insertError) throw insertError;
+      }
+
+      setClubAdminsByClubId((prev) => ({
+        ...prev,
+        [selectedClubId]: playerId === "none" ? [] : [playerId],
+      }));
+
+      const selectedPlayer = players.find((player) => player.id === playerId);
+      const selectedPlayerName = [selectedPlayer?.name, selectedPlayer?.last_name]
+        .filter(Boolean)
+        .join(" ");
+
+      toast({
+        title: "Club admin updated",
+        description:
+          playerId === "none"
+            ? `${club?.name || "Club"} has no assigned club admin`
+            : `${selectedPlayerName || "Player"} assigned as club admin`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Update failed",
+        description: error?.message || "Could not update club admin",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingClubAdmin(false);
+    }
+  };
+
+  const availableClubAdminOptions = selectedClubId
+    ? [
+        { value: "none", label: "No admin assigned" },
+        ...players
+          .filter((player) => Array.isArray(player.clubs) && player.clubs.includes(selectedClubId))
+          .map((player) => ({
+            value: player.id,
+            label: `${[player.name, player.last_name].filter(Boolean).join(" ") || player.email}${
+              player.email ? ` (${player.email})` : ""
+            }`,
+          })),
+      ]
+    : [{ value: "none", label: "No admin assigned" }];
+
+  const selectedClubAdminId = selectedClubId
+    ? clubAdminsByClubId[selectedClubId]?.[0] || "none"
+    : "none";
+
+  useEffect(() => {
+    setPendingClubAdminId(selectedClubAdminId);
+  }, [selectedClubAdminId]);
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -471,9 +595,9 @@ const AddClub = () => {
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-green-800 flex items-center gap-2">
               <Building className="h-7 w-7" />
-              Manage Clubs (Super Admin)
+              Club Management
             </h1>
-            <p className="text-green-600">Create or edit clubs and ladder host locations.</p>
+            <p className="text-green-600">Create clubs, edit club details, ladders, and assign club admins.</p>
           </div>
         </div>
 
@@ -484,7 +608,7 @@ const AddClub = () => {
           <CardContent>
             <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as "add" | "edit")}>
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="add">Add Club</TabsTrigger>
+                <TabsTrigger value="add">Club Management</TabsTrigger>
                 <TabsTrigger value="edit">Edit Club</TabsTrigger>
               </TabsList>
 
@@ -741,6 +865,38 @@ const AddClub = () => {
                       {saving ? "Saving..." : "Save Changes"}
                     </Button>
                   </form>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <UserCog className="h-4 w-4 text-green-700" />
+                      <Label>Club admin</Label>
+                    </div>
+                    <select
+                      value={pendingClubAdminId}
+                      onChange={(e) => setPendingClubAdminId(e.target.value)}
+                      className="w-full border rounded-md px-3 py-2 bg-white"
+                      disabled={!selectedClubId || savingClubAdmin}
+                    >
+                      {availableClubAdminOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                        disabled={!selectedClubId || savingClubAdmin || pendingClubAdminId === selectedClubAdminId}
+                        onClick={() => handleAssignClubAdmin(pendingClubAdminId)}
+                      >
+                        {savingClubAdmin ? "Saving..." : "Save Club Admin"}
+                      </Button>
+                      <p className="text-xs text-gray-500">
+                        Only players who belong to this club can be assigned.
+                      </p>
+                    </div>
+                  </div>
 
                   <div className="mt-6 space-y-3">
                     <Label>Ladders</Label>

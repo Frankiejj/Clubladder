@@ -47,6 +47,16 @@ interface LadderMembershipRow {
   rank: number | null;
 }
 
+const normalizeRank = (rank: number | null | undefined) => {
+  if (typeof rank !== "number") return 0;
+  return rank >= 1000000 ? rank - 1000000 : rank;
+};
+
+const hasDuplicateNormalizedRanks = (rows: Array<{ rank: number | null }>) => {
+  const normalized = rows.map((row) => normalizeRank(row.rank)).filter((rank) => rank > 0);
+  return new Set(normalized).size !== normalized.length;
+};
+
 const Admin = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -77,6 +87,49 @@ const Admin = () => {
   const [ladderMemberships, setLadderMemberships] = useState<LadderMembershipRow[]>([]);
   const [ladderLoading, setLadderLoading] = useState(false);
   const [selectedRoundLabel, setSelectedRoundLabel] = useState<string>("");
+
+  const repairLadderRanks = async (
+    ladderId: string,
+    rows: Array<{ id: string; ladder_id: string; player_id: string; partner_id: string | null; rank: number | null }>
+  ) => {
+    const normalizedRows = [...rows]
+      .sort((a, b) => normalizeRank(a.rank) - normalizeRank(b.rank))
+      .map((row, index) => ({
+        ...row,
+        rank: index + 1,
+      }));
+
+    const needsRepair =
+      rows.some((row) => typeof row.rank === "number" && row.rank >= 1000000) ||
+      hasDuplicateNormalizedRanks(rows);
+
+    if (!needsRepair) {
+      return normalizedRows;
+    }
+
+    const tempBase = 2000000;
+    await Promise.all(
+      normalizedRows.map((row, index) =>
+        (supabase as any)
+          .from("ladder_memberships")
+          .update({ rank: tempBase + index + 1 })
+          .eq("id", row.id)
+          .eq("ladder_id", ladderId)
+      )
+    );
+
+    await Promise.all(
+      normalizedRows.map((row) =>
+        (supabase as any)
+          .from("ladder_memberships")
+          .update({ rank: row.rank })
+          .eq("id", row.id)
+          .eq("ladder_id", ladderId)
+      )
+    );
+
+    return normalizedRows;
+  };
 
   useEffect(() => {
     const bootstrap = async () => {
@@ -217,11 +270,17 @@ const Admin = () => {
         setLadderMemberships([]);
         return;
       }
-      setLadderMemberships((data as LadderMembershipRow[]) || []);
-      if (data && data.length) {
-        const sorted = [...data].sort((a: any, b: any) => (a.rank ?? 0) - (b.rank ?? 0));
+      const repairedRows = await repairLadderRanks(
+        selectedLadderId,
+        ((data as LadderMembershipRow[]) || [])
+      );
+      setLadderMemberships(repairedRows as LadderMembershipRow[]);
+      if (repairedRows.length) {
+        const sorted = [...repairedRows].sort(
+          (a: any, b: any) => normalizeRank(a.rank) - normalizeRank(b.rank)
+        );
         setSelectedPlayerId(sorted[0].id);
-        setSelectedPlayerRank(Number(sorted[0].rank ?? 1));
+        setSelectedPlayerRank(normalizeRank(sorted[0].rank) || 1);
       } else {
         setSelectedPlayerId("");
         setSelectedPlayerRank(1);
@@ -330,7 +389,7 @@ const Admin = () => {
             : player?.name || "Player";
         return {
           membershipId: row.id,
-          rank: row.rank ?? 0,
+            rank: normalizeRank(row.rank),
           playerId: row.player_id,
           displayName,
           email: player?.email || "",
@@ -439,11 +498,11 @@ const Admin = () => {
       throw deleteError;
     }
 
-    const remainingResp = await (supabase as any)
-      .from("ladder_memberships")
-      .select("id,rank")
-      .eq("ladder_id", selectedLadderId)
-      .order("rank", { ascending: true });
+      const remainingResp = await (supabase as any)
+        .from("ladder_memberships")
+        .select("id,rank")
+        .eq("ladder_id", selectedLadderId)
+        .order("rank", { ascending: true });
     if (remainingResp.error) {
       throw remainingResp.error;
     }
@@ -452,10 +511,10 @@ const Admin = () => {
       ? (remainingResp.data as { id: string; rank: number | null }[])
       : [];
 
-    const updates = remaining.map((row, index) => ({
-      id: row.id,
-      rank: index + 1,
-    }));
+      const updates = remaining.map((row, index) => ({
+        id: row.id,
+        rank: index + 1,
+      }));
 
     await Promise.all(
       updates.map((u) =>
@@ -475,10 +534,10 @@ const Admin = () => {
       prev
         .filter((m) => m.id !== membershipId)
         .map((m) => {
-          const upd = updates.find((u) => u.id === m.id);
-          return upd ? { ...m, rank: upd.rank } : m;
-        })
-    );
+            const upd = updates.find((u) => u.id === m.id);
+            return upd ? { ...m, rank: normalizeRank(upd.rank) } : { ...m, rank: normalizeRank(m.rank) };
+          })
+      );
     setMatches((prev) =>
       prev.filter(
         (m) =>
@@ -494,7 +553,7 @@ const Admin = () => {
     const target = current.find((m) => m.id === membershipId);
     if (!target) return;
 
-    const ordered = [...current].sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0));
+    const ordered = [...current].sort((a, b) => normalizeRank(a.rank) - normalizeRank(b.rank));
     const without = ordered.filter((m) => m.id !== membershipId);
     const idx = Math.max(0, Math.min(newRank - 1, without.length));
     without.splice(idx, 0, target);
@@ -518,7 +577,7 @@ const Admin = () => {
     setLadderMemberships((prev) =>
       prev.map((m) => {
         const upd = updates.find((u) => u.id === m.id);
-        return upd ? { ...m, rank: upd.rank } : m;
+        return upd ? { ...m, rank: normalizeRank(upd.rank) } : { ...m, rank: normalizeRank(m.rank) };
       })
     );
     toast({ title: "Rank updated" });

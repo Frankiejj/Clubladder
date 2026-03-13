@@ -173,7 +173,13 @@ const SuperAdmin = () => {
         if (error) throw error;
         const safe = (data as LadderRow[]) || [];
         setLadders(safe);
-        if (!selectedLadderId && safe.length) {
+        if (!safe.length) {
+          setSelectedLadderId("");
+          return;
+        }
+
+        const selectedStillVisible = safe.some((l) => l.id === selectedLadderId);
+        if (!selectedStillVisible) {
           const singles = safe.find((l) => l.type === "singles");
           setSelectedLadderId((singles || safe[0]).id);
         }

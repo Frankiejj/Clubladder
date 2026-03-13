@@ -472,6 +472,9 @@ const Profile = () => {
                     disabled
                     className="mt-1"
                   />
+                  <p className="mt-1 text-xs text-gray-500">
+                    For changing your email, contact support@sportsladder.nl.
+                  </p>
                 </div>
 
                 <div>

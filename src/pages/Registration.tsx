@@ -565,13 +565,23 @@ export default function Registration() {
                   : "Send verification code"}
               </Button>
             ) : (
-              <Button
-                onClick={handleVerifyAndCreate}
-                disabled={loading}
-                className="w-full bg-green-700 hover:bg-green-800 text-white"
-              >
-                {loading ? "Verifying..." : "Verify code & register"}
-              </Button>
+              <div className="flex flex-col gap-2">
+                <Button
+                  onClick={handleVerifyAndCreate}
+                  disabled={loading}
+                  className="w-full bg-green-700 hover:bg-green-800 text-white"
+                >
+                  {loading ? "Verifying..." : "Verify code & register"}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleRegister}
+                  disabled={loading || cooldown > 0}
+                  className="w-full"
+                >
+                  {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend code"}
+                </Button>
+              </div>
             )}
 
             <p className="text-center text-sm text-gray-600">

@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Building, Mail, Phone, Globe, MapPin, Shield, ArrowLeft, Trophy } from "lucide-react";
+import { Building, Mail, Phone, Globe, MapPin, Shield, ArrowLeft, Trophy, MessageCircle } from "lucide-react";
 import { getCurrentPlayerRecord } from "@/services/clubAdminAccess";
 
 type ClubRow = {
@@ -280,12 +280,6 @@ const MyClub = () => {
                       )}
                     </div>
 
-                    {club.description && (
-                      <div className="text-sm text-gray-600 bg-gray-50 rounded-md px-3 py-2">
-                        {club.description}
-                      </div>
-                    )}
-
                     <div>
                       <div className="flex items-center gap-2 font-semibold text-gray-800 mb-3">
                         <Shield className="h-4 w-4 text-green-600" />
@@ -305,9 +299,18 @@ const MyClub = () => {
                                 <div>
                                   <div className="font-semibold text-gray-800">Email</div>
                                   {admin.email ? (
-                                    <a className="text-green-700 hover:underline" href={`mailto:${admin.email}`}>
-                                      {admin.email}
-                                    </a>
+                                    <div className="flex items-center gap-2">
+                                      <a className="text-green-700 hover:underline" href={`mailto:${admin.email}`}>
+                                        {admin.email}
+                                      </a>
+                                      <a
+                                        className="text-green-700 hover:text-green-800"
+                                        href={`mailto:${admin.email}`}
+                                        aria-label={`Email ${admin.email}`}
+                                      >
+                                        <Mail className="h-4 w-4" />
+                                      </a>
+                                    </div>
                                   ) : (
                                     <div>-</div>
                                   )}
@@ -318,9 +321,20 @@ const MyClub = () => {
                                 <div>
                                   <div className="font-semibold text-gray-800">Phone</div>
                                   {admin.phone ? (
-                                    <a className="text-green-700 hover:underline" href={`tel:${admin.phone}`}>
-                                      {admin.phone}
-                                    </a>
+                                    <div className="flex items-center gap-2">
+                                      <a className="text-green-700 hover:underline" href={`tel:${admin.phone}`}>
+                                        {admin.phone}
+                                      </a>
+                                      <a
+                                        className="text-green-700 hover:text-green-800"
+                                        href={`https://wa.me/${admin.phone.replace(/\D/g, "")}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        aria-label={`WhatsApp ${admin.phone}`}
+                                      >
+                                        <MessageCircle className="h-4 w-4" />
+                                      </a>
+                                    </div>
                                   ) : (
                                     <div>-</div>
                                   )}
