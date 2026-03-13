@@ -10,6 +10,7 @@ import { PendingMatches } from "@/components/PendingMatches";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { scheduleMatch } from "@/services/matchScheduling";
+import { sendResultRegisteredEmail } from "@/services/matchResultEmail";
 import {
   Select,
   SelectContent,
@@ -295,6 +296,10 @@ const MyMatches = () => {
                 ...m,
                 scheduledDate: nextDate,
                 status: "scheduled",
+                winnerId: null,
+                score: null,
+                player1Score: null,
+                player2Score: null,
               }
             : m
         )
@@ -374,6 +379,15 @@ const MyMatches = () => {
           : m
       )
     );
+
+    try {
+      const emailResult = await sendResultRegisteredEmail(challengeId);
+      if (emailResult.ok === false) {
+        console.error("Result registered email partial failure", emailResult);
+      }
+    } catch (emailError) {
+      console.error("Result registered email failed", emailError);
+    }
 
     toast({
       title: "Match completed",

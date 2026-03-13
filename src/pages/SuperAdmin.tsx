@@ -617,7 +617,7 @@ const SuperAdmin = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100">
-      <div className="absolute top-6 right-4 z-10">
+      <div className="fixed top-3 right-3 sm:top-6 sm:right-4 z-20">
         <ProfileDropdown />
       </div>
       <div className="container mx-auto px-4 py-8 max-w-5xl">

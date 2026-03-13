@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Shield, Users, Trophy, Trash2, Save, Pencil } from "lucide-react";
 import { ProfileDropdown } from "@/components/ProfileDropdown";
+import { getCurrentPlayerRecord, getEffectiveAdminClubIdsForPlayer } from "@/services/clubAdminAccess";
 
 interface PlayerRow {
   id: string;
@@ -86,17 +87,15 @@ const Admin = () => {
           navigate("/login");
           return;
         }
-        const { data: me, error } = await (supabase as any)
-          .from("players")
-          .select("id,is_admin,is_super_admin,clubs,email")
-          .ilike("email", user.email || "")
-          .maybeSingle();
-        if (error || !me) {
-          throw error || new Error("Not authorized");
+        const me = await getCurrentPlayerRecord(user);
+        if (!me) {
+          throw new Error("Not authorized");
         }
-        const isAdmin = Boolean((me as any).is_admin || (me as any).is_super_admin);
+        const isSuperAdmin = Boolean((me as any).is_super_admin);
+        const clubAdminIds = isSuperAdmin ? [] : await getEffectiveAdminClubIdsForPlayer(me);
+        const isAdmin = isSuperAdmin || clubAdminIds.length > 0;
         setIsSuperAdmin(Boolean((me as any).is_super_admin));
-        const clubs = Array.isArray((me as any).clubs) ? (me as any).clubs : [];
+        const clubs = isSuperAdmin ? (Array.isArray((me as any).clubs) ? (me as any).clubs : []) : clubAdminIds;
         setAuthorized(isAdmin);
         setAdminClubs(clubs);
         if (!isAdmin) {
@@ -104,9 +103,9 @@ const Admin = () => {
           return;
         }
         const clubsData = await loadClubs();
-        const fallbackClub = me.is_super_admin
+        const fallbackClub = isSuperAdmin
           ? clubsData?.[0]?.id || ""
-          : (Array.isArray(me.clubs) ? me.clubs[0] : "") || "";
+          : clubs[0] || "";
         setSelectedClubId(fallbackClub);
         await Promise.all([loadPlayers(clubs), loadMatches()]);
       } catch (err: any) {
@@ -404,80 +403,89 @@ const Admin = () => {
     setShowMatchModal(true);
   };
 
-  const rebalanceLadderRanksForRemovedPlayer = async (removedPlayerId: string) => {
-    const membershipResp = await (supabase as any)
-      .from("ladder_memberships")
-      .select("id,ladder_id")
-      .or(`player_id.eq.${removedPlayerId},partner_id.eq.${removedPlayerId}`);
-    if (membershipResp.error) {
-      if (membershipResp.error.code === "42P01") {
-        return;
-      }
-      throw membershipResp.error;
+  const removeMembershipFromSelectedLadder = async (membershipId: string) => {
+    if (!selectedLadderId) {
+      throw new Error("No ladder selected.");
     }
 
-    const memberships = Array.isArray(membershipResp.data)
-      ? (membershipResp.data as { id: string; ladder_id: string }[])
-      : [];
-    if (!memberships.length) return;
+    const membership = ladderMemberships.find((row) => row.id === membershipId);
+    if (!membership) {
+      throw new Error("Membership not found.");
+    }
+
+    const involvedPlayerIds = [membership.player_id, membership.partner_id].filter(Boolean) as string[];
+
+    if (involvedPlayerIds.length) {
+      const { error: matchDeleteError } = await (supabase as any)
+        .from("matches")
+        .delete()
+        .eq("ladder_id", selectedLadderId)
+        .or(
+          involvedPlayerIds
+            .map((playerId) => `challenger_id.eq.${playerId},challenged_id.eq.${playerId}`)
+            .join(",")
+        );
+
+      if (matchDeleteError) {
+        throw matchDeleteError;
+      }
+    }
 
     const { error: deleteError } = await (supabase as any)
       .from("ladder_memberships")
       .delete()
-      .or(`player_id.eq.${removedPlayerId},partner_id.eq.${removedPlayerId}`);
-    if (deleteError && deleteError.code !== "42P01") {
+      .eq("id", membershipId);
+    if (deleteError) {
       throw deleteError;
     }
 
-    const updates: Array<{ id: string; rank: number; ladder_id: string }> = [];
-    const removedMembershipIds = new Set<string>(memberships.map((m) => m.id));
-    const ladderIds = [...new Set(memberships.map((m) => m.ladder_id))];
-    for (const ladderId of ladderIds) {
-      const remainingResp = await (supabase as any)
-        .from("ladder_memberships")
-        .select("id,rank")
-        .eq("ladder_id", ladderId)
-        .order("rank", { ascending: true });
-      if (remainingResp.error) {
-        throw remainingResp.error;
-      }
-
-      const remaining = Array.isArray(remainingResp.data)
-        ? (remainingResp.data as { id: string; rank: number | null }[])
-        : [];
-
-      const ladderUpdates = remaining.map((row, index) => ({
-        id: row.id,
-        ladder_id: ladderId,
-        rank: index + 1,
-      }));
-
-      await Promise.all(
-        ladderUpdates.map((u) =>
-          (supabase as any)
-            .from("ladder_memberships")
-            .update({ rank: 1000000 + u.rank })
-            .eq("id", u.id)
-        )
-      );
-      await Promise.all(
-        ladderUpdates.map((u) =>
-          (supabase as any).from("ladder_memberships").update({ rank: u.rank }).eq("id", u.id)
-        )
-      );
-
-      updates.push(...ladderUpdates);
+    const remainingResp = await (supabase as any)
+      .from("ladder_memberships")
+      .select("id,rank")
+      .eq("ladder_id", selectedLadderId)
+      .order("rank", { ascending: true });
+    if (remainingResp.error) {
+      throw remainingResp.error;
     }
 
-    setLadderMemberships((prev) => {
-      const byId = new Map(updates.map((u) => [u.id, u.rank]));
-      return prev
-        .filter((m) => !removedMembershipIds.has(m.id))
+    const remaining = Array.isArray(remainingResp.data)
+      ? (remainingResp.data as { id: string; rank: number | null }[])
+      : [];
+
+    const updates = remaining.map((row, index) => ({
+      id: row.id,
+      rank: index + 1,
+    }));
+
+    await Promise.all(
+      updates.map((u) =>
+        (supabase as any)
+          .from("ladder_memberships")
+          .update({ rank: 1000000 + u.rank })
+          .eq("id", u.id)
+      )
+    );
+    await Promise.all(
+      updates.map((u) =>
+        (supabase as any).from("ladder_memberships").update({ rank: u.rank }).eq("id", u.id)
+      )
+    );
+
+    setLadderMemberships((prev) =>
+      prev
+        .filter((m) => m.id !== membershipId)
         .map((m) => {
-          const nextRank = byId.get(m.id);
-          return nextRank ? { ...m, rank: nextRank } : m;
-        });
-    });
+          const upd = updates.find((u) => u.id === m.id);
+          return upd ? { ...m, rank: upd.rank } : m;
+        })
+    );
+    setMatches((prev) =>
+      prev.filter(
+        (m) =>
+          m.ladder_id !== selectedLadderId ||
+          (!involvedPlayerIds.includes(m.challenger_id) && !involvedPlayerIds.includes(m.challenged_id))
+      )
+    );
   };
 
   const reorderAndSaveRanks = async (membershipId: string, newRank: number) => {
@@ -532,35 +540,29 @@ const Admin = () => {
     }
   };
 
-  const handleRemovePlayer = async (playerId: string) => {
-    const membership = ladderMemberships.find((membership) => membership.id === playerId);
-    const resolvedPlayerId = membership?.player_id || playerId;
-    const player = playerLookup[resolvedPlayerId];
-    if (!resolvedPlayerId) {
+  const handleRemovePlayer = async (membershipId: string) => {
+    const membership = ladderMemberships.find((row) => row.id === membershipId);
+    const player = membership ? playerLookup[membership.player_id] : null;
+    if (!membership) {
       toast({
         title: "Remove failed",
-        description: "Could not resolve player id.",
+        description: "Could not resolve ladder membership.",
         variant: "destructive",
       });
       return;
     }
-    const ok = window.confirm(`Remove player ${player?.name || ""}?`);
+    const ok = window.confirm(`Remove player ${player?.name || ""} from this ladder?`);
     if (!ok) return;
-    setRemovingPlayerId(resolvedPlayerId);
+    setRemovingPlayerId(membershipId);
     try {
-      await rebalanceLadderRanksForRemovedPlayer(resolvedPlayerId);
-      await (supabase as any)
-        .from("matches")
-        .delete()
-        .or(`challenger_id.eq.${resolvedPlayerId},challenged_id.eq.${resolvedPlayerId}`);
-      await (supabase as any).from("players").delete().eq("id", resolvedPlayerId);
-      setPlayers((prev) => prev.filter((p) => p.id !== resolvedPlayerId));
-      toast({ title: "Player removed" });
+      await removeMembershipFromSelectedLadder(membershipId);
+      toast({ title: "Player removed from ladder" });
       setSelectedPlayerId("");
+      setShowPlayerModal(false);
     } catch (error: any) {
       toast({
         title: "Remove failed",
-        description: error?.message || "Could not remove player",
+        description: error?.message || "Could not remove player from ladder",
         variant: "destructive",
       });
     } finally {
@@ -674,27 +676,27 @@ const Admin = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 relative">
       {isSuperAdmin && (
-        <div className="absolute top-6 right-4 z-10">
+        <div className="fixed top-3 right-3 sm:top-6 sm:right-4 z-20">
           <ProfileDropdown />
         </div>
       )}
       <div className="container mx-auto px-4 py-8 max-w-5xl">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-green-800 flex items-center gap-2">
-              <Shield className="h-6 w-6" />
-              Admin Control
-            </h1>
-            <p className="text-green-600">Manage rankings and matches for your clubs.</p>
-          </div>
-          {!isSuperAdmin && (
+        {!isSuperAdmin && (
+          <div className="mb-4">
             <Link to="/app">
-              <Button variant="outline">
+              <Button>
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Back
+                Back to Ladder
               </Button>
             </Link>
-          )}
+          </div>
+        )}
+        <div className="mb-6">
+          <h1 className="text-2xl sm:text-3xl font-bold text-green-800 flex items-center gap-2">
+            <Shield className="h-6 w-6" />
+            Admin Control
+          </h1>
+          <p className="text-green-600">Manage rankings and matches for your clubs.</p>
         </div>
 
         {isSuperAdmin && (
@@ -843,14 +845,14 @@ const Admin = () => {
                               <Save className="h-4 w-4 mr-2" />
                               {saving ? "Saving..." : "Save Rank"}
                             </Button>
-                            <Button
+                              <Button
                               variant="destructive"
                               onClick={() => {
                                 const p = ladderRanking.find((r) => r.membershipId === selectedPlayerId);
-                                if (!p?.playerId) return;
-                                handleRemovePlayer(p.playerId);
+                                if (!p?.membershipId) return;
+                                handleRemovePlayer(p.membershipId);
                               }}
-                              disabled={removingPlayerId === p?.playerId}
+                              disabled={removingPlayerId === p?.membershipId}
                             >
                               <Trash2 className="h-4 w-4 mr-2" />
                               Remove Player
@@ -970,24 +972,40 @@ const Admin = () => {
                     <CardTitle>Edit match</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <Label className="text-xs">Challenger score</Label>
-                        <Input
-                          type="number"
-                          value={matchScores.p1}
-                          onChange={(e) => setMatchScores((prev) => ({ ...prev, p1: e.target.value }))}
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Challenged score</Label>
-                        <Input
-                          type="number"
-                          value={matchScores.p2}
-                          onChange={(e) => setMatchScores((prev) => ({ ...prev, p2: e.target.value }))}
-                        />
-                      </div>
-                    </div>
+                    {(() => {
+                      const selectedMatch = visibleMatches.find((m) => m.id === selectedMatchId);
+                      const challengerName = selectedMatch
+                        ? teamNameByPlayerId[selectedMatch.challenger_id] ||
+                          playerLookup[selectedMatch.challenger_id]?.name ||
+                          "Challenger"
+                        : "Challenger";
+                      const challengedName = selectedMatch
+                        ? teamNameByPlayerId[selectedMatch.challenged_id] ||
+                          playerLookup[selectedMatch.challenged_id]?.name ||
+                          "Challenged"
+                        : "Challenged";
+
+                      return (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <Label className="text-xs">{challengerName} score</Label>
+                            <Input
+                              type="number"
+                              value={matchScores.p1}
+                              onChange={(e) => setMatchScores((prev) => ({ ...prev, p1: e.target.value }))}
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">{challengedName} score</Label>
+                            <Input
+                              type="number"
+                              value={matchScores.p2}
+                              onChange={(e) => setMatchScores((prev) => ({ ...prev, p2: e.target.value }))}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })()}
                     <div className="flex gap-2">
                       <Button onClick={handleSaveMatch} disabled={saving}>
                         <Save className="h-4 w-4 mr-2" />

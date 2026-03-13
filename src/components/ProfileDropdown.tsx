@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { getCurrentPlayerRecord, getEffectiveAdminClubIdsForPlayer } from "@/services/clubAdminAccess";
 
 interface PlayerProfile {
   name: string | null;
@@ -45,17 +46,15 @@ export const ProfileDropdown = () => {
     let dbName: string | null = null;
     let dbIsSuperAdmin = false;
     let dbIsAdmin = false;
-    const { data: playerRow, error: playerErr } = await (supabase as any)
-      .from("players")
-      .select("avatar_url,name,is_super_admin,is_admin")
-      .ilike("email", user.email || "")
-      .maybeSingle();
-    if (!playerErr) {
-      dbAvatar = playerRow?.avatar_url ?? null;
-      dbName = playerRow?.name ?? null;
-      dbIsSuperAdmin = Boolean((playerRow as any)?.is_super_admin ?? (playerRow as any)?.is_admin);
-      dbIsAdmin = Boolean((playerRow as any)?.is_admin);
-    } else {
+    try {
+      const playerRow = await getCurrentPlayerRecord(user);
+      if (playerRow) {
+        dbAvatar = playerRow?.avatar_url ?? null;
+        dbName = playerRow?.name ?? null;
+        dbIsSuperAdmin = Boolean((playerRow as any)?.is_super_admin);
+        dbIsAdmin = dbIsSuperAdmin || (await getEffectiveAdminClubIdsForPlayer(playerRow)).length > 0;
+      }
+    } catch (playerErr) {
       console.warn("Profile dropdown avatar lookup error", playerErr);
     }
 
@@ -107,8 +106,12 @@ export const ProfileDropdown = () => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-green-500 rounded-full bg-gradient-to-r from-green-600 to-emerald-500 text-white p-1.5 sm:p-2 shadow-lg hover:shadow-xl transition">
-          <Avatar className="h-7 w-7 sm:h-9 sm:w-9 bg-green-100 text-green-700 border-2 border-white/40 ring-0 shadow">
+        <button
+          type="button"
+          aria-label="Open profile menu"
+          className="flex h-11 w-11 sm:h-12 sm:w-12 touch-manipulation items-center justify-center rounded-full bg-gradient-to-r from-green-600 to-emerald-500 p-1.5 text-white shadow-lg transition hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-green-500"
+        >
+          <Avatar className="h-8 w-8 sm:h-9 sm:w-9 bg-green-100 text-green-700 border-2 border-white/40 ring-0 shadow">
             <AvatarImage
               key={profile.avatar_url || profile.email}
               src={profile.avatar_url || undefined}
@@ -121,7 +124,7 @@ export const ProfileDropdown = () => {
           </Avatar>
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
+      <DropdownMenuContent align="end" sideOffset={8} collisionPadding={12} className="w-56">
         <DropdownMenuLabel>
           <div className="flex flex-col">
             <span className="font-medium">{profile.name || "User"}</span>

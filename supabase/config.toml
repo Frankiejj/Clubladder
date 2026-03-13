@@ -1,1 +1,4 @@
 project_id = "mvsfbyzjipllfyoelfug"
+
+[functions.send-pending-round-emails]
+verify_jwt = false

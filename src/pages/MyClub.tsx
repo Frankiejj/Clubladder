@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Building, Mail, Phone, Globe, MapPin, Shield, ArrowLeft, Trophy } from "lucide-react";
+import { getCurrentPlayerRecord } from "@/services/clubAdminAccess";
 
 type ClubRow = {
   id: string;
@@ -23,7 +24,7 @@ type AdminRow = {
   last_name?: string | null;
   email: string | null;
   phone: string | null;
-  clubs: string[] | null;
+  club_id?: string | null;
 };
 
 const MyClub = () => {
@@ -42,11 +43,8 @@ const MyClub = () => {
         return;
       }
 
-      const { data: playerRow, error: playerError } = await (supabase as any)
-        .from("players")
-        .select("clubs,email")
-        .ilike("email", user.email || "")
-        .maybeSingle();
+      const playerRow = await getCurrentPlayerRecord(user);
+      const playerError = null;
 
       if (playerError) {
         console.error("MyClub player lookup error", playerError);
@@ -76,17 +74,66 @@ const MyClub = () => {
         return;
       }
 
-      const { data: adminRows, error: adminError } = await (supabase as any)
+      const { data: clubAdminRows, error: clubAdminError } = await (supabase as any)
+        .from("club_admins")
+        .select("club_id,player_id")
+        .in("club_id", clubIds);
+
+      if (clubAdminError) {
+        console.error("MyClub club admins load error", clubAdminError);
+        setAdmins([]);
+        setClubs((clubRows as ClubRow[]) || []);
+        setLoading(false);
+        return;
+      }
+
+      const adminPairs = (clubAdminRows as Array<{ club_id: string; player_id: string }> | null) || [];
+      const adminPlayerIds = Array.from(new Set(adminPairs.map((row) => row.player_id)));
+
+      const { data: adminPlayers, error: adminError } = await (supabase as any)
         .from("players")
-        .select("id,name,last_name,email,phone,clubs")
-        .eq("is_admin", true);
+        .select("id,name,last_name,email,phone")
+        .in("id", adminPlayerIds);
 
       if (adminError) {
         console.error("MyClub admins load error", adminError);
         setAdmins([]);
       } else {
-        const rows = (adminRows as AdminRow[]) || [];
-        setAdmins(rows.filter((row) => Array.isArray(row.clubs) && row.clubs.some((id) => clubIds.includes(id))));
+        const playerById = new Map(
+          (((adminPlayers as AdminRow[]) || [])).map((row) => [row.id, row])
+        );
+        setAdmins(
+          adminPairs
+            .map((row) => {
+              const admin = playerById.get(row.player_id);
+              return admin ? { ...admin, club_id: row.club_id } : null;
+            })
+            .filter((row): row is AdminRow => Boolean(row))
+        );
+
+        if (!adminPairs.length) {
+          const fallbackAdminsResult = await (supabase as any)
+            .from("players")
+            .select("id,name,last_name,email,phone,clubs")
+            .eq("is_admin", true);
+
+          if (!fallbackAdminsResult.error) {
+            const fallbackRows = ((fallbackAdminsResult.data as Array<AdminRow & { clubs?: string[] | null }> | null) || [])
+              .flatMap((row) =>
+                (row.clubs || [])
+                  .filter((clubId) => clubIds.includes(clubId))
+                  .map((clubId) => ({
+                    id: row.id,
+                    name: row.name,
+                    last_name: row.last_name,
+                    email: row.email,
+                    phone: row.phone,
+                    club_id: clubId,
+                  }))
+              );
+            setAdmins(fallbackRows);
+          }
+        }
       }
 
       setClubs((clubRows as ClubRow[]) || []);
@@ -99,10 +146,9 @@ const MyClub = () => {
   const adminsByClub = useMemo(() => {
     const map: Record<string, AdminRow[]> = {};
     admins.forEach((admin) => {
-      (admin.clubs || []).forEach((clubId) => {
-        if (!map[clubId]) map[clubId] = [];
-        map[clubId].push(admin);
-      });
+      if (!admin.club_id) return;
+      if (!map[admin.club_id]) map[admin.club_id] = [];
+      map[admin.club_id].push(admin);
     });
     return map;
   }, [admins]);

@@ -12,6 +12,7 @@ import { PendingMatches } from "@/components/PendingMatches";
 import { Header } from "@/components/Header";
 import { PlayerDetailsModal } from "@/components/PlayerDetailsModal";
 import { scheduleMatch } from "@/services/matchScheduling";
+import { sendResultRegisteredEmail } from "@/services/matchResultEmail";
 import { useToast } from "@/hooks/use-toast";
 
 import { Button } from "@/components/ui/button";
@@ -355,6 +356,17 @@ export default function Index() {
 
     if (error) console.error(error);
 
+    if (!error) {
+      try {
+        const emailResult = await sendResultRegisteredEmail(challengeId);
+        if (emailResult.ok === false) {
+          console.error("Result registered email partial failure", emailResult);
+        }
+      } catch (emailError) {
+        console.error("Result registered email failed", emailError);
+      }
+    }
+
     await loadChallenges();
     await loadPlayers();
   }
@@ -375,6 +387,10 @@ export default function Index() {
                 ...m,
                 scheduledDate: nextDate,
                 status: "scheduled",
+                winnerId: null,
+                score: null,
+                player1Score: null,
+                player2Score: null,
               }
             : m
         )
@@ -828,7 +844,7 @@ export default function Index() {
       <div className="container mx-auto px-4 py-8">
         
         {/* Profile in top-right */}
-        <div className="absolute top-6 right-4 z-10">
+        <div className="fixed top-3 right-3 sm:top-6 sm:right-4 z-20">
           <ProfileDropdown />
         </div>
 

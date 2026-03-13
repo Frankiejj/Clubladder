@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -8,17 +7,54 @@ import { Player } from "@/types/Player";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
 import { ProfileDropdown } from "@/components/ProfileDropdown";
+import { supabase } from "@/integrations/supabase/client";
+import { getCurrentPlayerRecord, getEffectiveAdminClubIdsForPlayer } from "@/services/clubAdminAccess";
 
 const ClubAdmin = () => {
   const { toast } = useToast();
   const [selectedPlayerId, setSelectedPlayerId] = useState("");
+  const [authorized, setAuthorized] = useState<boolean | null>(null);
+  const [adminClubIds, setAdminClubIds] = useState<string[]>([]);
 
   // Get current user and players from localStorage
   const currentUser = JSON.parse(localStorage.getItem("currentUser") || "null") as Player | null;
   const players = JSON.parse(localStorage.getItem("players") || "[]") as Player[];
 
+  useEffect(() => {
+    const loadAccess = async () => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const user = sessionData?.session?.user;
+      if (!user) {
+        setAuthorized(false);
+        return;
+      }
+
+      try {
+        const playerRow = await getCurrentPlayerRecord(user);
+        if (!playerRow) {
+          setAuthorized(false);
+          return;
+        }
+
+        const isSuperAdmin = Boolean((playerRow as any).is_super_admin);
+        const clubIds = isSuperAdmin ? [] : await getEffectiveAdminClubIdsForPlayer(playerRow);
+        setAdminClubIds(clubIds);
+        setAuthorized(isSuperAdmin || clubIds.length > 0);
+      } catch (error) {
+        console.error("Club admin access load failed", error);
+        setAuthorized(false);
+      }
+    };
+
+    loadAccess();
+  }, []);
+
   // Redirect if not a club admin
-  if (!currentUser || !currentUser.isAdmin ) {
+  if (authorized === null) {
+    return null;
+  }
+
+  if (!currentUser || !authorized) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center">
         <Card className="max-w-md">
@@ -40,8 +76,7 @@ const ClubAdmin = () => {
   // Get players from the same club as the current admin (excluding the admin themselves)
   const clubPlayers = players.filter(player => 
     player.clubs && 
-    currentUser.clubs && 
-    player.clubs.some(club => currentUser.clubs?.includes(club)) &&
+    player.clubs.some(club => adminClubIds.includes(club)) &&
     player.id !== currentUser.id &&
     !player.isAdmin // Club admins cannot remove other admins
   );
@@ -75,7 +110,7 @@ const ClubAdmin = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 relative">
-      <div className="absolute top-6 right-4 z-10">
+      <div className="fixed top-3 right-3 sm:top-6 sm:right-4 z-20">
         <ProfileDropdown />
       </div>
       <div className="container mx-auto px-4 py-8 max-w-4xl">

@@ -274,6 +274,9 @@ export const PendingMatches = ({
     const isParticipant = isMatchParticipant(challenge);
     const canEnterScore = isParticipant && (!isCompleted || isScoreEditableThisMonth);
     const isEditing = !!editingScores[challenge.id];
+    const canScheduleMatch = Boolean(onScheduleMatch) && isParticipant;
+    const showInlineActionButtons = canScheduleMatch && !isCompleted;
+    const showScorePanel = canEnterScore && (isCompleted ? isEditing : showInlineActionButtons ? isEditing : true);
 
     return (
       <div
@@ -394,19 +397,47 @@ export const PendingMatches = ({
                 Completed
               </Badge>
             )}
-            {isCompleted && isScoreEditableThisMonth && canEnterScore && (
-              <Button
-                className="w-32 justify-center bg-green-600 text-white hover:bg-green-700 border border-green-700"
-                size="sm"
-                onClick={() =>
-                  setEditingScores((prev) => ({
-                    ...prev,
-                    [challenge.id]: !prev[challenge.id],
-                  }))
-                }
-              >
-                {isEditing ? "Cancel edit" : "Edit score"}
-              </Button>
+            {isCompleted && (isScoreEditableThisMonth && canEnterScore || canScheduleMatch) && (
+              <div className="flex flex-row gap-2 items-center justify-center">
+                {isScoreEditableThisMonth && canEnterScore && (
+                  <Button
+                    className="w-32 justify-center bg-green-600 text-white hover:bg-green-700 border border-green-700"
+                    size="sm"
+                    onClick={() =>
+                      setEditingScores((prev) => ({
+                        ...prev,
+                        [challenge.id]: !prev[challenge.id],
+                      }))
+                    }
+                  >
+                    {isEditing ? "Cancel edit" : "Edit score"}
+                  </Button>
+                )}
+                {canScheduleMatch && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="w-32 justify-center bg-blue-600 text-white hover:bg-blue-700 border border-blue-700"
+                    onClick={() => {
+                      const isOpen = !!openScheduler[challenge.id];
+                      setOpenScheduler((prev) => ({ ...prev, [challenge.id]: !isOpen }));
+                      if (isOpen) return;
+                      setScheduleValues((prev) => {
+                        if (prev[challenge.id]?.date && prev[challenge.id]?.time) return prev;
+                        const now = new Date();
+                        const hh = String(now.getHours()).padStart(2, "0");
+                        const mm = String(now.getMinutes()).padStart(2, "0");
+                        return {
+                          ...prev,
+                          [challenge.id]: { date: now, time: `${hh}:${mm}` },
+                        };
+                      });
+                    }}
+                  >
+                    Schedule again
+                  </Button>
+                )}
+              </div>
             )}
           </div>
 
@@ -474,29 +505,75 @@ export const PendingMatches = ({
           </div>
         </div>
 
-        {!isCompleted && onScheduleMatch && isMatchParticipant(challenge) && (
-          <div className="border-t pt-4 bg-white p-4 rounded-lg flex flex-col gap-3 max-w-full">
-              {!openScheduler[challenge.id] ? (
+        {canScheduleMatch && (
+          <>
+              {showInlineActionButtons ? (
+                <div className="flex flex-row gap-2 items-center justify-center">
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="w-32 justify-center bg-blue-600 text-white hover:bg-blue-700 border border-blue-700"
+                    onClick={() => {
+                      const isOpen = !!openScheduler[challenge.id];
+                      setOpenScheduler((prev) => ({ ...prev, [challenge.id]: !isOpen }));
+                      setEditingScores((prev) => ({ ...prev, [challenge.id]: false }));
+                      if (isOpen) return;
+                      setScheduleValues((prev) => {
+                        if (prev[challenge.id]?.date && prev[challenge.id]?.time) return prev;
+                        const now = new Date();
+                        const hh = String(now.getHours()).padStart(2, "0");
+                        const mm = String(now.getMinutes()).padStart(2, "0");
+                        return {
+                          ...prev,
+                          [challenge.id]: { date: now, time: `${hh}:${mm}` },
+                        };
+                      });
+                    }}
+                  >
+                    {challenge.status === "scheduled" ? "Reschedule" : "Schedule match"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="w-32 justify-center bg-green-600 text-white hover:bg-green-700"
+                    onClick={() => {
+                      setEditingScores((prev) => ({ ...prev, [challenge.id]: !prev[challenge.id] }));
+                      setOpenScheduler((prev) => ({ ...prev, [challenge.id]: false }));
+                    }}
+                  >
+                    Submit result
+                  </Button>
+                </div>
+              ) : !isCompleted ? (
                 <Button
                   variant="default"
+                  size="sm"
+                  className="w-32 justify-center bg-blue-600 text-white hover:bg-blue-700 border border-blue-700"
                   onClick={() => {
-                    setOpenScheduler((prev) => ({ ...prev, [challenge.id]: true }));
+                    const isOpen = !!openScheduler[challenge.id];
+                    setOpenScheduler((prev) => ({ ...prev, [challenge.id]: !isOpen }));
+                    if (isOpen) return;
                     setScheduleValues((prev) => {
                       if (prev[challenge.id]?.date && prev[challenge.id]?.time) return prev;
-                    const now = new Date();
-                    const hh = String(now.getHours()).padStart(2, "0");
-                    const mm = String(now.getMinutes()).padStart(2, "0");
-                    return {
-                      ...prev,
-                      [challenge.id]: { date: now, time: `${hh}:${mm}` },
+                      const now = new Date();
+                      const hh = String(now.getHours()).padStart(2, "0");
+                      const mm = String(now.getMinutes()).padStart(2, "0");
+                      return {
+                        ...prev,
+                        [challenge.id]: { date: now, time: `${hh}:${mm}` },
                       };
                     });
                   }}
-                  className="w-full sm:w-auto text-xs sm:text-sm bg-green-600 hover:bg-green-700 text-white"
                 >
-                  {challenge.status === "scheduled" ? "Reschedule" : "Schedule match"}
+                  Schedule again
                 </Button>
-            ) : (
+              ) : null}
+
+              {openScheduler[challenge.id] && (
+              <div
+                className={`border-t pt-4 p-4 rounded-lg flex flex-col gap-3 max-w-full items-center ${
+                  isCompleted ? "bg-blue-50" : "bg-green-50"
+                }`}
+              >
               <div className="w-full max-w-full">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs sm:text-sm font-medium text-gray-700">Pick date & time</span>
@@ -560,18 +637,19 @@ export const PendingMatches = ({
                         const utcIso = composed.toISOString();
                         onScheduleMatch(challenge.id, utcIso);
                       }}
-                      className="w-[16rem] max-w-full mx-auto text-xs sm:text-sm bg-green-600 text-white hover:bg-green-700"
+                      className="w-[16rem] max-w-full mx-auto text-xs sm:text-sm bg-blue-600 text-white hover:bg-blue-700"
                     >
                       Set date
                     </Button>
                   </div>
                 </div>
+              </div>
             )}
-          </div>
+          </>
         )}
 
-        {canEnterScore && (!isCompleted || isEditing) && (
-          <div className="border-t pt-4 bg-white p-4 rounded-lg">
+        {showScorePanel && (
+          <div className={`border-t pt-4 p-4 rounded-lg ${isCompleted ? "bg-blue-50" : "bg-green-50"}`}>
             <h4 className="font-medium text-sm sm:text-base mb-3">
               {isCompleted ? "Edit Match Result" : "Enter Match Result"}
             </h4>
@@ -630,29 +708,16 @@ export const PendingMatches = ({
               </div>
             </div>
             
-            <div className="flex flex-col sm:flex-row gap-2 items-stretch">
+            <div className="flex flex-col sm:flex-row gap-2 items-center justify-center">
               <Button
                 onClick={() => handleScoreSubmit(challenge)}
-                className="w-full sm:w-auto flex-1 bg-green-600 hover:bg-green-700"
+                size="sm"
+                className="w-32 justify-center bg-green-600 hover:bg-green-700"
                 disabled={!scores[challenge.id]?.player1 || !scores[challenge.id]?.player2}
               >
                 <Trophy className="h-4 w-4 mr-2" />
-                Submit Result
+                Submit
               </Button>
-              {isCompleted && (
-                <Button
-                  variant="outline"
-                  className="w-full sm:w-auto flex-1"
-                  onClick={() =>
-                    setEditingScores((prev) => ({
-                      ...prev,
-                      [challenge.id]: false,
-                    }))
-                  }
-                >
-                  Done
-                </Button>
-              )}
             </div>
           </div>
         )}
@@ -662,7 +727,16 @@ export const PendingMatches = ({
 
   return (
     <div className="w-full">
-      <Tabs defaultValue="pending" className="w-full">
+      <Tabs
+        defaultValue="pending"
+        className="w-full"
+        onValueChange={(value) => {
+          if (value === "completed") {
+            setOpenScheduler({});
+            setEditingScores({});
+          }
+        }}
+      >
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="pending" className="text-xs sm:text-sm">
             Pending Matches ({pendingChallenges.length})

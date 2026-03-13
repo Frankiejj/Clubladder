@@ -47,17 +47,33 @@ const Profile = () => {
           return;
         }
 
-        const { data: player, error } = await (supabase as any)
+        let { data: player, error } = await (supabase as any)
           .from("players")
           .select("id,name,last_name,email,is_admin,clubs,created_at,phone,avatar_url")
-          .eq("email", session.user.email)
+          .eq("id", session.user.id)
           .maybeSingle();
+
+        if (!player && session.user.email) {
+          const fallbackResult = await (supabase as any)
+            .from("players")
+            .select("id,name,last_name,email,is_admin,clubs,created_at,phone,avatar_url")
+            .eq("email", session.user.email)
+            .maybeSingle();
+          player = fallbackResult.data;
+          error = fallbackResult.error;
+        }
 
         if (error || !player) {
           throw error || new Error("Player not found");
         }
 
         setPlayerId(player.id);
+        if (session.user.email && player.email !== session.user.email) {
+          await (supabase as any)
+            .from("players")
+            .update({ email: session.user.email })
+            .eq("id", player.id);
+        }
         const rawPhone = player.phone || "";
         const digits = rawPhone.replace(/\D/g, "");
         const derivedCountryCode =
@@ -75,7 +91,7 @@ const Profile = () => {
           phone: derivedPhone || "",
           countryCode: derivedCountryCode || "1",
           club_ids: (player.clubs || []).filter(Boolean),
-          email: player.email || "",
+          email: session.user.email || player.email || "",
           avatarUrl: player.avatar_url || "",
         });
         setAvatarPreview(player.avatar_url || null);
@@ -419,7 +435,9 @@ const Profile = () => {
                     <Input
                       id="first-name"
                       value={formData.first_name}
-                      disabled
+                      onChange={(e) =>
+                        setFormData({ ...formData, first_name: e.target.value })
+                      }
                       className="mt-1"
                     />
                   </div>
@@ -433,7 +451,9 @@ const Profile = () => {
                     <Input
                       id="last-name"
                       value={formData.last_name}
-                      disabled
+                      onChange={(e) =>
+                        setFormData({ ...formData, last_name: e.target.value })
+                      }
                       className="mt-1"
                     />
                   </div>
@@ -532,7 +552,7 @@ const Profile = () => {
                   disabled={deleting}
                 >
                   <Trash2 className="h-4 w-4" />
-                  {deleting ? "Removing..." : "Remove Profile"}
+                  {deleting ? "Removing..." : "Remove Account"}
                 </Button>
               </div>
             </form>
