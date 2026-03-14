@@ -32,13 +32,13 @@ export const Header = ({
   
   return (
     <div className="text-center mb-12">
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="mb-4 flex items-start justify-between gap-3">
         <div className="w-11 sm:w-12 shrink-0" />
         <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3">
           <img src="/favicon.svg" alt="Ladder logo" className="h-10 w-10 sm:h-12 sm:w-12" />
           <h1 className="text-4xl sm:text-5xl font-bold text-green-800">Ladder</h1>
         </div>
-        <div className="w-11 sm:w-12 shrink-0 flex items-center justify-end">
+        <div className="w-11 sm:w-12 shrink-0 flex items-start justify-end">
           <ProfileDropdown />
         </div>
       </div>
