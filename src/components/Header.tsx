@@ -5,6 +5,7 @@ import { Link, useLocation } from "react-router-dom";
 import { UserProfile } from "./UserProfile";
 import { Player } from "@/types/Player";
 import { Challenge } from "@/types/Challenge";
+import { ProfileDropdown } from "@/components/ProfileDropdown";
 
 interface HeaderProps {
   playersCount: number;
@@ -31,9 +32,15 @@ export const Header = ({
   
   return (
     <div className="text-center mb-12">
-      <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 mb-4">
-        <img src="/favicon.svg" alt="Ladder logo" className="h-10 w-10 sm:h-12 sm:w-12" />
-        <h1 className="text-4xl sm:text-5xl font-bold text-green-800">Ladder</h1>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="w-11 sm:w-12 shrink-0" />
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3">
+          <img src="/favicon.svg" alt="Ladder logo" className="h-10 w-10 sm:h-12 sm:w-12" />
+          <h1 className="text-4xl sm:text-5xl font-bold text-green-800">Ladder</h1>
+        </div>
+        <div className="w-11 sm:w-12 shrink-0 flex items-center justify-end">
+          <ProfileDropdown />
+        </div>
       </div>
       <p className="text-lg sm:text-xl text-green-700 mb-6">View upcoming matches and results!</p>
       
